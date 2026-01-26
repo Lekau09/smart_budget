@@ -288,34 +288,6 @@ export default function Dashboard() {
           alignItems: 'center',
           flexWrap: 'wrap'
         }}>
-          <div style={{
-            display: 'flex',
-            gap: '0.5rem',
-            padding: '0.5rem',
-            backgroundColor: 'var(--surface-secondary)',
-            borderRadius: 'var(--radius-lg)',
-            border: '1px solid var(--border)'
-          }}>
-            {['week', 'month', 'year'].map(period => (
-              <button
-                key={period}
-                onClick={() => setTimePeriod(period)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: timePeriod === period ? 'var(--primary)' : 'transparent',
-                  color: timePeriod === period ? 'white' : 'var(--text-primary)',
-                  fontWeight: 'var(--font-weight-semibold)',
-                  fontSize: 'var(--font-size-sm)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                {period.charAt(0).toUpperCase() + period.slice(1)}
-              </button>
-            ))}
-          </div>
           <button 
             className="btn btn-primary"
             onClick={() => setShowBudgetModal(true)}

@@ -18,7 +18,7 @@ import Transactions from "../features/transactions/Transactions";
 import Savings from "../features/savings/Savings";
 import Analytics from "../features/analytics/Analytics";
 import Goals from "../features/goals/Goals";
-import Sessions from "../features/sessions/Sessions";
+
 
 function Layout() {
   const [collapsed, setCollapsed] = useLocalStorage("sb:collapsed", false);
@@ -73,7 +73,7 @@ export default function AppRouter() {
         <Route path="savings" element={<ErrorBoundary><Savings /></ErrorBoundary>} />
         <Route path="analytics" element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
         <Route path="goals" element={<ErrorBoundary><Goals /></ErrorBoundary>} />
-        <Route path="sessions" element={<ErrorBoundary><Sessions /></ErrorBoundary>} />
+
         <Route path="settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
       </Route>
 

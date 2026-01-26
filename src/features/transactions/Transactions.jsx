@@ -147,7 +147,7 @@ export default function Transactions() {
             fontWeight: '600',
             border: 'none',
             borderRadius: '10px',
-            backgroundColor: 'var(--primary)',
+            backgroundColor: '#0946CC',
             color: 'white',
             cursor: 'pointer',
             transition: 'all 200ms ease',
@@ -164,7 +164,7 @@ export default function Transactions() {
             e.currentTarget.style.transform = 'translateY(-2px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--primary)';
+            e.currentTarget.style.backgroundColor = '#0946CC';
             e.currentTarget.style.boxShadow = '0 4px 12px rgba(11, 95, 255, 0.3)';
             e.currentTarget.style.transform = 'translateY(0)';
           }}

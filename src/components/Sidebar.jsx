@@ -9,7 +9,6 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     { to: "/app/savings", label: "Savings", icon: <CreditCard size={20} /> },
     { to: "/app/analytics", label: "Analytics", icon: <BarChart3 size={20} /> },
     { to: "/app/goals", label: "Goals", icon: <Target size={20} /> },
-    { to: "/app/sessions", label: "Sessions", icon: <Clock size={20} /> },
     { to: "/app/settings", label: "Settings", icon: <IconSettings size={20} /> }
   ];
 
