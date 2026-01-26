@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SmartBudget - Test Page</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F9FAFB; color: #1F2937; }
+    .container { width: 100%; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .card { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 40px; max-width: 500px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    h1 { font-size: 32px; margin-bottom: 16px; font-weight: 800; }
+    p { font-size: 16px; color: #6B7280; margin-bottom: 20px; line-height: 1.6; }
+    .status { background: #DBEAFE; border: 1px solid #BFDBFE; border-radius: 8px; padding: 16px; margin: 20px 0; font-family: monospace; font-size: 14px; color: #1E40AF; }
+    .button { display: inline-block; padding: 12px 24px; background: #0B5FFF; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; border: none; cursor: pointer; }
+    .button:hover { background: #0946CC; }
+    .loading { display: inline-block; width: 20px; height: 20px; border: 3px solid #E5E7EB; border-top: 3px solid #0B5FFF; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>💰 SmartBudget</h1>
+      <p>React app is initializing. If you see this page, the server is running correctly.</p>
+      
+      <div class="status">
+        ✅ Dev Server: Running on port 5173
+        <br>✅ Page: http://localhost:5173/
+        <br>⏳ App: Initializing...
+      </div>
+
+      <h2 style="font-size: 18px; margin-top: 24px; margin-bottom: 12px;">Check:</h2>
+      <ol style="margin-left: 20px; line-height: 1.8;">
+        <li><strong>Open DevTools</strong> (F12) and check Console tab</li>
+        <li><strong>Look for errors</strong> in red or warnings in yellow</li>
+        <li><strong>Check Network tab</strong> for failed requests</li>
+        <li><strong>Clear cache</strong> (Ctrl+Shift+Del) and refresh (Ctrl+R)</li>
+      </ol>
+
+      <h2 style="font-size: 18px; margin-top: 24px; margin-bottom: 12px;">If blank page:</h2>
+      <ol style="margin-left: 20px; line-height: 1.8;">
+        <li>Check browser console for errors</li>
+        <li>Try in a different browser</li>
+        <li>Verify node_modules are installed: <code>npm install</code></li>
+        <li>Restart dev server</li>
+      </ol>
+
+      <button class="button" onclick="location.reload()" style="margin-top: 24px;">🔄 Refresh Page</button>
+    </div>
+  </div>
+
+  <script>
+    console.log('%c✅ SmartBudget', 'font-size: 20px; color: #0B5FFF; font-weight: bold;');
+    console.log('Dev Server running at: http://localhost:5173/');
+    console.log('This test page confirms the server is responding.');
+    console.log('Check for any errors above in the console.');
+  </script>
+</body>
+</html>
