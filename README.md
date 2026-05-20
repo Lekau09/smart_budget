@@ -1,13 +1,29 @@
-# SmartSpend
+# SmartSpend 3.0
 
 **Automated SMS-Based Personal Finance Tracker**
 Capture bank SMS messages from your Android phone, classify them with Machine Learning, and visualise your spending — all in one dashboard.
+
+> Built for Southern Africa. Works with FNB, Standard Lesotho Bank, M-Pesa, Ecocash, and more.  
+> Supports multiple currencies: **M (Maloti), R / ZAR (Rand), $ (Dollar), £ (Pound), LSL, SZL, ZWL, USD**.
+
+---
+
+## What's New in 3.0
+
+| Improvement | Detail |
+|---|---|
+| Multi-currency support | Parses M, R, ZAR, $, £, LSL, SZL, ZWL, USD across all SMS formats |
+| Accurate amount extraction | Fixed false matches where partial words (e.g. "from") were mistaken for currency symbols |
+| Store name detection | Correctly extracts merchant names from M-Pesa/Ecocash messages with spaces around dashes |
+| Savings Goals on Dashboard | Goals now appear on the dashboard immediately after creation |
+| Subscriptions category | Dedicated ML category for Netflix, DSTV, Spotify, Showmax, etc. |
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [What's New in 3.0](#whats-new-in-30)
 - [Features](#features)
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
@@ -334,17 +350,21 @@ make start-ml
 
 ## SMS Formats Supported
 
+All currency symbols are recognised automatically — no configuration needed.
+
 | Bank / Network | Format example |
 |---|---|
 | FNB | `FNB:-) M300.00 reserved for purchase @ Hotspot from Smart Account..123456` |
+| FNB | `FNB:-) R150.00 reserved for purchase @ Woolworths from Smart Account..789012` |
 | Standard Lesotho Bank | `Your Acc XX6932 has been debited with LSL 570.00. Ref : POS LEC Maseru` |
 | Standard Lesotho Bank | `ZAR 51.00 has been reserved from Acc: XX4131 for purchase via POS Mr Price` |
-| M-Pesa | `Transact ID ... Withdraw M50.00 from 6118 - MTN General Cafe` |
+| M-Pesa | `Transact ID 00P4GHK0CR7S Confirmed. Withdraw M50.00 from 6118 - MTN General Cafe` |
 | M-Pesa | `Give M300.00 cash to Lamshine Snack bar` |
 | M-Pesa | `M56.00 sent to 33152 - VATICAN GENERAL DEALER Merchant` |
-| M-Pesa / Ecocash | `You have paid M32 to 84191- Ob Joint MSU for Merchant Payment` |
-| Ecocash | `Ecocash: CashOut Confirmation: M 200 from 29453-NeoLekoekoe Leribe` |
-| Ecocash | `You have paid M180 to 12345- Pick n Pay for Merchant Payment` |
+| M-Pesa / Ecocash | `You have paid M32 to 84191 - Ob Joint MSU for Merchant Payment` |
+| Ecocash | `Ecocash: CashOut Confirmation: M 200 from 29453 - NeoLekoekoe Leribe` |
+| Ecocash | `Ecocash: CashOut Confirmation: R 90 from 00100737 - ALUMNUS TUCKSHOP` |
+| Ecocash | `You have paid M180 to 12345 - Pick n Pay for Merchant Payment` |
 
 ---
 
