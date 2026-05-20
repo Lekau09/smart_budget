@@ -1,0 +1,578 @@
+================================================================================
+SMART BUDGETING APP - SGDRegressor TRAINING DATASET DESCRIPTION
+================================================================================
+
+Table of Contents:
+  1. Overview
+  2. Data Generation Methodology
+  3. Dataset Structure & Columns
+  4. Statistical Characteristics
+  5. Spending Profiles
+  6. Income Tiers
+  7. Feature Engineering
+  8. Target Variable (Month 5 Deviation)
+  9. Dataset Size & Balance
+  10. Model Training Configuration
+  11. Cross-Validation Results
+  12. Usage Pipeline
+
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+The SGDRegressor training dataset was synthetically generated to model household
+spending patterns and enable prediction of next-month budget deviations. The
+dataset captures real-world behavioral characteristics through programmatic
+simulation of four distinct spending profiles across three income tiers.
+
+Dataset Name:         budget_dataset.csv
+Total Samples:        500 households
+Time Dimension:       5 consecutive months of budget and spending data per household
+Total Records:        500 rows × 16 columns
+File Size:            ~140 KB (CSV format)
+Generation Method:    Synthetic, deterministic with controlled randomness
+Random Seed:          42 (reproducible)
+Language & Tools:     Python with NumPy & Pandas
+
+
+================================================================================
+2. DATA GENERATION METHODOLOGY
+================================================================================
+
+The dataset was generated using a bottom-up simulation approach that models
+individual household financial behavior in a realistic and interpretable way.
+Each household is assigned a fixed "spending personality" that persists across
+all five months, with minimal drift to reflect real household budgeting patterns.
+
+Generation Process (src: generate_dataset.py):
+
+Step 1: PROFILE ASSIGNMENT
+Each of the 500 households is randomly assigned one of four spending profiles:
+
+  Profile Name              Probability   Personality
+  ──────────────────────────────────────────────────────
+  "tight_saver"             35%           Consistently underspends
+  "balanced"                35%           Balanced, near-budget
+  "slight_overspend"        25%           Moderately over-budget
+  "chronic_overspend"       5%            Severely over-budget
+
+Step 2: INCOME TIER ASSIGNMENT
+Each household is assigned to one of three income ranges:
+
+  Tier    Income Range      Probability   Interpretation
+  ────────────────────────────────────────────────────────
+  Low     800–3,500         30%           Entry-level/part-time
+  Middle  3,500–8,000       50%           Full-time professional
+  High    8,000–18,000      20%           Dual income/senior
+
+The base annual income determines the absolute budget level for each household.
+
+Step 3: PERSONALITY PARAMETERS
+For each (profile, income_tier) combination, two parameters are randomly
+initialized and held constant across all five months:
+
+  Parameter      Purpose                       Range per Profile
+  ────────────────────────────────────────────────────────────
+  bias           Structural over/under-spend   [-0.15, -0.01] to [+0.18, +0.40]
+  discipline     Spending variability          [0.02, 0.06] to [0.03, 0.09]
+
+The "bias" parameter captures systematic spending personality (e.g., a chronic
+overspender has bias ~+0.25, meaning they structurally spend 25% over budget).
+The "discipline" parameter controls month-to-month volatility through the
+standard deviation of noise added to each month's spend.
+
+Income-Tier Adjustment:
+  Low-income households have discipline × 1.2, reflecting increased spending
+  variability (reflected literature on financial instability in lower-income
+  populations).
+
+Step 4: MONTHLY SIMULATION
+For each of 5 consecutive months (m ∈ [1, 2, 3, 4, 5]):
+
+  a) Budget: month_budget = base_income × random(0.94 to 1.06)
+     This allows 6% month-to-month budget variation reflecting irregular
+     stipends or household income fluctuations.
+
+  b) Bias Evolution:
+     month_bias = running_bias + normal(0, 0.01)
+     running_bias is updated each month: running_bias += normal(0, 0.005)
+     This introduces very slow behavioral drift (e.g., a household gradually
+     shifts from balanced to slight_overspend over 12+ months).
+
+  c) Spending Calculation:
+     noise = normal(0, discipline)
+     spend = budget × (1 + month_bias + noise)
+     spend = max(spend, budget × 0.45)  [floor to prevent negative spending]
+
+  d) Deviation Calculation:
+     deviation = spend - budget
+
+All monetary values are rounded to 2 decimal places (cents).
+
+Step 5: WEIGHTED AVERAGE FEATURE
+A fifth feature is computed for each record:
+
+  weighted_avg_deviation = (0.10×dev1 + 0.15×dev2 + 0.20×dev3 + 0.35×dev4
+                          + 0.20×simple_avg) / 1.0
+
+  where:
+    dev_m = month_m deviation
+    simple_avg = (dev1 + dev2 + dev3 + dev4) / 4
+
+This feature represents the traditional "expert-tuned" weighted average baseline
+that was later dropped (see Section 7.6 of the project report: linear dependence).
+
+
+================================================================================
+3. DATASET STRUCTURE & COLUMNS
+================================================================================
+
+The dataset contains 500 rows and 16 columns:
+
+Column Name              Data Type    Range                    Purpose
+─────────────────────────────────────────────────────────────────────────────
+month1Budget            float64      800 to 18,000           Month 1 budget
+month1Spend             float64      360 to ~22,000          Month 1 actual spending
+month1Deviation         float64      ~-2,000 to +3,500       Month 1 deviation (input feature)
+month2Budget            float64      800 to 18,000           Month 2 budget
+month2Spend             float64      360 to ~22,000          Month 2 actual spending
+month2Deviation         float64      ~-2,000 to +3,500       Month 2 deviation (input feature)
+month3Budget            float64      800 to 18,000           Month 3 budget
+month3Spend             float64      360 to ~22,000          Month 3 actual spending
+month3Deviation         float64      ~-2,000 to +3,500       Month 3 deviation (input feature)
+month4Budget            float64      800 to 18,000           Month 4 budget
+month4Spend             float64      360 to ~22,000          Month 4 actual spending
+month4Deviation         float64      ~-2,000 to +3,500       Month 4 deviation (input feature)
+month5Budget            float64      800 to 18,000           Month 5 budget
+month5Spend             float64      360 to ~22,000          Month 5 actual spending
+month5Deviation         float64      ~-2,000 to +3,500       Month 5 deviation (target)
+weighted_avg_deviation  float64      ~-500 to +1,000         Feature (unused in final model)
+
+All monetary values are in local currency units (Lesotho Maloti, M).
+
+
+================================================================================
+4. STATISTICAL CHARACTERISTICS
+================================================================================
+
+The dataset exhibits realistic distributions for household budget data.
+Descriptive statistics computed across all 500 samples and 5-month periods:
+
+Feature: month1Deviation, month2Deviation, month3Deviation, month4Deviation (INPUT FEATURES)
+──────────────────────────────────────────────────────────────────────────────
+  Mean (each):         ~110 to 145 M (structural slight overspend tendency)
+  Std Dev (each):      ~780 to 810 M (high month-to-month variability)
+  Min:                 ~-2,000 M      (severe underspend)
+  Max:                 ~+3,500 M      (severe overspend)
+  Correlation (pairwise): 0.83–0.86   (moderate, as designed)
+
+Reason for correlation: All five months share the same budget base and income-
+driven scale, creating inherent dependence. The model cannot distinguish budget
+scale from spending personality using raw spend; hence deviations are used
+instead (see Section 4.8.2 of project report).
+
+Feature: month5Deviation (TARGET VARIABLE)
+──────────────────────────────────────────────────────────────────────────────
+  Mean:                ~148.63 M     (slight positive tendency)
+  Std Dev:             ~852 M        (high variability)
+  Min:                 ~-1,800 M     (edge case underspend)
+  Max:                 ~+3,200 M     (edge case overspend)
+  Correlation with:
+    - month1Deviation: 0.71         (moderate predictive signal)
+    - month2Deviation: 0.69         (moderate predictive signal)
+    - month3Deviation: 0.74         (moderate predictive signal)
+    - month4Deviation: 0.75         (highest correlation with target)
+
+The positive correlation structure ensures that all four input features provide
+genuine predictive signal for month5Deviation. Recent months (3 & 4) show
+slightly higher correlation than older months (1 & 2), validating the recency
+weighting principle.
+
+
+================================================================================
+5. SPENDING PROFILES
+================================================================================
+
+Profile: TIGHT_SAVER (35% of dataset, n=175)
+────────────────────────────────────────────
+  Characteristic: Consistently spends less than budget
+  Bias range: [-0.15, -0.01]  (15% underspend to 1% underspend)
+  Discipline: [0.02, 0.06]    (low volatility)
+  Monthly deviation: typically negative, range -200 to +50
+  Real-world example: Grad student living off savings or stipend; avoids debt
+
+Profile: BALANCED (35% of dataset, n=175)
+──────────────────────────────────────────
+  Characteristic: Spends near budget with fair regularity
+  Bias range: [-0.02, +0.08]  (2% under to 8% over budget)
+  Discipline: [0.02, 0.05]    (moderate volatility)
+  Monthly deviation: fluctuates around zero, range -100 to +200
+  Real-world example: Salaried professional with stable spending habits
+
+Profile: SLIGHT_OVERSPEND (25% of dataset, n=125)
+───────────────────────────────────────────────────
+  Characteristic: Moderately over-budget, but correctable
+  Bias range: [+0.04, +0.20]  (4% to 20% overspend)
+  Discipline: [0.02, 0.07]    (moderate-to-high volatility)
+  Monthly deviation: typically positive, range -50 to +400
+  Real-world example: Young professional with lifestyle inflation;
+                      improves with budget awareness
+
+Profile: CHRONIC_OVERSPEND (5% of dataset, n=25)
+──────────────────────────────────────────────────
+  Characteristic: Severe and persistent overspending
+  Bias range: [+0.18, +0.40]  (18% to 40% overspend)
+  Discipline: [0.03, 0.09]    (high volatility)
+  Monthly deviation: consistently large positive, range +100 to +900
+  Real-world example: Student with debt-financed lifestyle, or family
+                      supporting dependents on limited income
+
+distribution ensures the model learns to predict both underspend and overspend
+patterns, with appropriate sensitivity to the severity of each household's
+tendency.
+
+
+================================================================================
+6. INCOME TIERS
+================================================================================
+
+The three income tiers reflect realistic wealth distribution in the target
+student population (Lesotho context):
+
+Tier 1: LOW-INCOME (800–3,500 M monthly, 30% of dataset, n=150)
+──────────────────────────────────────────────────────────────
+  Interpretation: Entry-level part-time work, basic stipend
+  Budget baseline: 800–3,500 M/month
+  Discipline scaling: ×1.2 (increased variability)
+  Rationale: Lower-income households often face unpredictable expenses
+             (emergency repairs, health costs) causing spending volatility
+  Real-world distribution: ~30% of university student population relies on
+                           part-time work or minimal family support
+
+Tier 2: MIDDLE-INCOME (3,500–8,000 M monthly, 50% of dataset, n=250)
+──────────────────────────────────────────────────────────────────────
+  Interpretation: Full-time work or regular family contribution
+  Budget baseline: 3,500–8,000 M/month
+  Discipline scaling: ×1.0 (standard variability)
+  Rationale: Consistent income supports more predictable spending
+  Real-world distribution: ~50% of student population has regular income
+                           (full-time job + part-time studies, or family
+                           allowance)
+
+Tier 3: HIGH-INCOME (8,000–18,000 M monthly, 20% of dataset, n=100)
+───────────────────────────────────────────────────────────────────
+  Interpretation: Dual income household, or senior employment
+  Budget baseline: 8,000–18,000 M/month
+  Discipline scaling: ×1.0 (standard variability)
+  Rationale: High-income households often have more savings buffer and
+             predictable expenses
+  Real-world distribution: ~20% of student population comes from affluent
+                           backgrounds with secure family support
+
+
+================================================================================
+7. FEATURE ENGINEERING
+================================================================================
+
+The dataset uses a THREE-LAYER feature approach, reflecting the progression of
+ML understanding documented in the project report:
+
+Layer 1: RAW FEATURES (15 columns)
+─────────────────────────────────
+  month1Budget through month5Spend
+  
+  Problem: Raw spend values show extremely high correlation (0.95–0.99)
+           because all months share the same income-driven budget scale.
+           The model cannot distinguish "spending personality" from "budget
+           scale" and assigns arbitrary coefficients.
+
+Layer 2: DEVIATION FEATURES (4 columns, PRIMARY)
+────────────────────────────────────────────────
+  month1Deviation, month2Deviation, month3Deviation, month4Deviation
+  
+  Definition: deviation_m = spend_m - budget_m
+  
+  Benefit: Deviations normalize across income levels. A household spending
+           15% over a M500 budget has the same deviation profile as one
+           spending 15% over a M5,000 budget.
+  
+  Feature Correlation: 0.83–0.86 (moderate, as designed)
+                       This is far better than raw spend (0.95–0.99) because
+                       the model can now distinguish personality from scale.
+
+Layer 3: WEIGHTED AVERAGE FEATURE (1 column, EXPERIMENTAL)
+──────────────────────────────────────────────────────────
+  weighted_avg_deviation = (0.10×dev1 + 0.15×dev2 + 0.20×dev3 + 0.35×dev4
+                          + 0.20×simple_avg) / 1.0
+  
+  Intention: Capture expert-tuned recency weighting (recent months more
+             relevant), combined with raw simple average.
+  
+  Status: DROPPED in final model (see Section 4.8.3 of project report)
+          Reason: Linear dependence — any model that learns coefficients for
+          dev1, dev2, dev3, dev4 can exactly replicate weighted_avg through
+          its own weights. Empirical ablation confirmed: CV R² unchanged
+          (0.7904 with vs. without).
+
+Feature Used in Production Model:
+─────────────────────────────────
+  Input: [month1Deviation, month2Deviation, month3Deviation, month4Deviation]
+  (4 features)
+  
+  Target: month5Deviation
+  
+  Scaling: StandardScaler (fit once on training data, frozen forever)
+           - mean (μ) and std (σ) computed on all 500 samples
+           - applied via transform() to every prediction call
+           - NEVER refitted on new data (see Bug #1 in Section 5.4.2 of report)
+
+
+================================================================================
+8. TARGET VARIABLE (MONTH 5 DEVIATION)
+================================================================================
+
+The target variable represents the deviation for the fifth month. Given a
+household's deviations in months 1–4, the model predicts the deviation in
+month 5.
+
+Definition:
+  y = month5Deviation = month5Spend - month5Budget
+
+Statistical Distribution:
+  Mean: 148.63 M        (slight structural positive bias in dataset)
+  Std:  852.00 M        (high variability)
+  Min:  ~-1,800 M       (edge case)
+  Max:  ~+3,200 M       (edge case)
+
+Interpretation:
+  - Positive values: household overspends (spends more than budget)
+  - Negative values: household underspends (spends less than budget)
+  - Magnitude: absolute deviation in currency units
+
+Application in Production:
+  When the model predicts y_hat (predicted deviation), the actual predicted
+  spend for month 5 is calculated as:
+    predicted_spend = month5_budget + y_hat
+
+  This allows the system to provide spending predictions to users with ANY
+  budget level, normalizing the prediction across diverse income tiers.
+
+
+================================================================================
+9. DATASET SIZE & BALANCE
+================================================================================
+
+Total Records: 500 households × 1 record per household = 500 rows
+
+Profile Distribution:
+  tight_saver         175 (35%)
+  balanced            175 (35%)
+  slight_overspend    125 (25%)
+  chronic_overspend    25 (5%)
+  ────────────────
+  Total               500
+
+Income Tier Distribution:
+  low-income (800–3,500)       150 (30%)
+  middle-income (3,500–8,000)  250 (50%)
+  high-income (8,000–18,000)   100 (20%)
+  ────────────────────────
+  Total                        500
+
+Profile × Tier Cross-Distribution (approximate):
+  Each profile is distributed across all three income tiers.
+  Example: tight_saver
+    - low-income:    ~50 households
+    - middle-income: ~100 households
+    - high-income:   ~25 households
+
+The distribution ensures:
+  1. The model learns patterns across all spending types
+  2. Recency-weighted classes (balanced, tight_saver) are well-represented
+     to prevent the model from defaulting to overspend predictions
+  3. Chronic overspenders (5%) are minority but present, allowing edge-case
+     learning
+
+
+================================================================================
+10. MODEL TRAINING CONFIGURATION
+================================================================================
+
+Algorithm: SGDRegressor (Stochastic Gradient Descent Regressor)
+           scikit-learn implementation
+
+Core Hyperparameters:
+  learning_rate: 'invscaling'   (decaying learning rate schedule)
+  eta0: 0.001                   (initial learning rate)
+  power_t: 0.25                 (decay exponent)
+  max_iter: 10000               (max passes over data)
+  tol: 1e-6                     (convergence tolerance)
+  random_state: 42              (reproducibility seed)
+  alpha: 0.0001                 (L2 regularization strength)
+
+Loss Function:
+  L(w, b) = (y - y_hat)^2 + alpha × ||w||^2
+  
+  where:
+    y = true month5Deviation
+    y_hat = w^T × x_scaled + b  (predicted deviation)
+    alpha × ||w||^2 = L2 regularization penalty
+  
+  The squared error term quadratically penalizes prediction error.
+  The L2 term prevents overfitting by penalizing large weight magnitudes.
+
+Learning Rate Schedule (invscaling):
+  eta(t) = eta0 / (1 + t)^power_t
+         = 0.001 / (1 + t)^0.25
+  
+  where t = number of samples processed globally (1-indexed)
+  
+  Learning rate evolution during initial training (500 rows × 100 epochs):
+    After 1 sample:        eta = 0.00100
+    After 500 samples:     eta = 0.00024
+    After 5,000 samples:   eta = 0.00013
+    After 50,000 samples:  eta = 0.00007
+  
+  Large corrections early (when weights far from optimal),
+  conservative updates later (when near convergence).
+
+Feature Scaling (StandardScaler):
+  x_scaled = (x - mu) / sigma
+  
+  where:
+    mu = (1/500) × sum(x)  [mean computed over all samples]
+    sigma = sqrt((1/500) × sum((x - mu)^2))  [std dev]
+  
+  Frozen Scaler Parameters (verified in scaler.pkl):
+    Feature                  Frozen μ      Frozen σ
+    ─────────────────────────────────────────────────
+    month1Deviation         139.54        776.10
+    month2Deviation         114.79        808.21
+    month3Deviation         142.50        789.95
+    month4Deviation         111.94        802.52
+  
+  These parameters are computed once on the initial 500 samples and NEVER
+  updated, even as new monthly data arrives (partial_fit).
+
+
+================================================================================
+11. CROSS-VALIDATION RESULTS
+================================================================================
+
+Cross-validation was performed using 5-fold stratified k-fold with random_state=42.
+
+Model Tested: LinearRegression (to learn natural coefficients)
+───────────────────────────────────────────────────────────────
+  CV R² Scores:      [0.7894, 0.7935, 0.7932, 0.8010, 0.7960]
+  Mean CV R²:        0.7946
+  Std CV R²:         0.0046
+  
+  These R² values represent the unbiased generalization error across unseen
+  folds. A mean R² of ~0.79 means the model explains ~79% of variance in
+  month5Deviation from the four input features.
+
+Learned Coefficients (LinearRegression on raw deviations):
+───────────────────────────────────────────────────────────
+  Feature                Coefficient
+  ───────────────────────────────────
+  month1Deviation       +0.1977
+  month2Deviation       +0.1717
+  month3Deviation       +0.2906
+  month4Deviation       +0.2857
+  Intercept             +27.95
+  
+  Interpretation:
+    - All four coefficients are positive, confirming each month carries
+      predictive signal (no feature is spurious).
+    - Recency trend: months 3 & 4 (0.29 each) outweigh months 1 & 2
+      (0.20 each), validating the recency principle.
+    - Month 4 does NOT dominate (0.2857 ≈ month 3), showing balanced
+      multi-month dependence rather than last-month overfitting.
+    - Intercept +27.95 reflects the +148.63 M mean deviation in the dataset,
+      partially captured after feature scaling removes the mean.
+
+Baseline Comparison (Weighted Average Benchmark):
+──────────────────────────────────────────────────
+  Method: Fixed weighted average with expert-tuned weights
+          predicted = (0.10×dev1 + 0.15×dev2 + 0.20×dev3 + 0.35×dev4
+                      + 0.20×simple_avg)
+  
+  Mean CV R²: ~0.76
+  
+  Result: LinearRegression learned a BETTER weighting scheme (0.7946 vs 0.76),
+          validating the ML approach over manual tuning.
+          Difference: +0.035 (0.5% absolute improvement)
+
+
+================================================================================
+12. USAGE PIPELINE
+================================================================================
+
+The dataset was used to initialize the SGDRegressor model, which is now
+deployed in production for spending prediction. The pipeline is:
+
+Step 1: INITIAL TRAINING (once, during deployment setup)
+─────────────────────────────────────────────────────────
+  a) Load budget_dataset.csv (500 households)
+  b) Extract features: X = [month1Dev, month2Dev, month3Dev, month4Dev]
+  c) Extract target: y = [month5Dev]
+  d) Fit StandardScaler: scaler.fit(X)
+  e) Scale features: X_scaled = scaler.transform(X)
+  f) Initialize SGDRegressor with specified hyperparams
+  g) Run 100 epochs of partial_fit() on all 500 rows:
+     for epoch in range(100):
+       model.partial_fit(X_scaled, y)
+     NOTE: This 100-epoch count is for INITIAL training only.
+           Monthly incremental updates use 10 epochs
+           (see update_model_partial_fit.py, N_EPOCHS = 10).
+  h) Save model to budget_model.pkl
+  i) Save scaler to scaler.pkl
+
+Step 2: PRODUCTION PREDICTION
+──────────────────────────────
+  When user opens Analytics page:
+    a) PHP queries last 4 completed months of user's expense data
+    b) PHP sends raw monthly spend values + current budget to predict.php via cURL
+    c) predict.php passes them unchanged to run_prediction.py via exec()
+    d) Python loads model.pkl and scaler.pkl
+    e) Python computes deviations: dev_m = spend_m - budget
+       (deviations are computed in Python, not PHP)
+    f) Scale features: x_scaled = scaler.transform([dev1, dev2, dev3, dev4])
+    g) Predict: y_hat = model.predict(x_scaled)
+    h) Predicted spend = current_budget + y_hat
+    i) Return JSON to frontend
+
+Step 3: INCREMENTAL LEARNING (monthly)
+───────────────────────────────────────
+  After month N completes:
+    a) PHP queries database across a 5-MONTH window (months M-4 through M).
+       Users must have complete data for all 5 months to be eligible.
+       The 5 months produce: 4 feature deviations (M-4, M-3, M-2, M-1)
+                           + 1 target deviation (M)
+    b) PHP computes deviations for each month (spend - budget)
+    c) PHP builds JSON payload and calls update_model_partial_fit.py
+    d) Python loads model.pkl and scaler.pkl
+    e) Validates all 5 deviation fields are present and numeric
+    f) Scale features using FROZEN scaler (transform only, never refit)
+    g) Call model.partial_fit(x_scaled, month_N_actual_deviation)
+       × 10 epochs (N_EPOCHS = 10 in update_model_partial_fit.py)
+    h) Save updated model to disk
+    i) Do NOT refit the scaler
+
+The frozen scaler ensures that the feature space remains constant; only the
+model weights drift to adapt to new user patterns. This prevents catastrophic
+forgetting (weights suddenly resetting) while allowing graceful update to
+changing behavior over years.
+
+================================================================================
+END OF DOCUMENT
+================================================================================
+
+Document Version: 1.0
+Generated: April 2026
+Project: Smart Budgeting App (NUL Capstone 2025)
+Reference: Chapter 4, Section 4.8 & Chapter 5, Section 5.4
+Dataset Location: C:\Users\lenyo\OneDrive\Desktop\Smart Budget_ML\budget_dataset.csv
+Training Notebook: train_model.ipynb (exploratory analysis)
+                   initialize_model.ipynb (production initialization)

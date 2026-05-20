@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS Simulator - Smart Budget</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #1f2937;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            color: #374151;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .info {
+            background: #f0f9ff;
+            border-left: 4px solid #0284c7;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #0c4a6e;
+        }
+        
+        .success {
+            background: #dcfce7;
+            border-left: 4px solid #16a34a;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #15803d;
+            display: none;
+        }
+        
+        .error {
+            background: #fee2e2;
+            border-left: 4px solid #dc2626;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #991b1b;
+            display: none;
+        }
+        
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .preset-btn {
+            padding: 10px;
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+            transition: all 0.2s;
+        }
+        
+        .preset-btn:hover {
+            background: #e5e7eb;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 SMS Simulator</h1>
+        <p class="subtitle">Send test SMS messages to your webhook</p>
+        
+        <div class="info">
+            ℹ️ This tool simulates the SMS Forwarder app. It sends test messages to your webhook for testing.
+        </div>
+        
+        <form id="smsForm">
+            <div class="form-group">
+                <label for="smsFrom">SMS From (sender number):</label>
+                <input 
+                    type="text" 
+                    id="smsFrom" 
+                    name="smsFrom" 
+                    value="+26652000002" 
+                    placeholder="e.g., +26652000002"
+                    required
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="smsText">Message Text:</label>
+                <textarea 
+                    id="smsText" 
+                    name="smsText" 
+                    placeholder="Enter the SMS message text..."
+                    required
+                ></textarea>
+                
+                <div class="preset-buttons">
+                    <button type="button" class="preset-btn" onclick="setPreset('balance')">
+                        💳 Balance
+                    </button>
+                    <button type="button" class="preset-btn" onclick="setPreset('transfer')">
+                        💸 Transfer
+                    </button>
+                    <button type="button" class="preset-btn" onclick="setPreset('airtime')">
+                        📱 Airtime
+                    </button>
+                    <button type="button" class="preset-btn" onclick="setPreset('payment')">
+                        💰 Payment
+                    </button>
+                </div>
+            </div>
+            
+            <button type="submit">Send SMS</button>
+            
+            <div id="successMsg" class="success"></div>
+            <div id="errorMsg" class="error"></div>
+        </form>
+    </div>
+    
+    <script>
+        // Use localhost instead of IP to avoid CORS and network issues
+        const API_BASE = 'http://localhost/smart_budget/backend/api';
+        
+        const presets = {
+            balance: 'Your account balance is 5000.00 BWP. Available for withdrawal: 4800.00 BWP',
+            transfer: 'You have received 2000.00 BWP from John Doe. Reference: TRF123456',
+            airtime: 'You have successfully purchased P50.00 airtime. Balance: P123.45',
+            payment: 'Payment of 1500.00 BWP to Electricity Board confirmed. Reference: PAY789456'
+        };
+        
+        function setPreset(type) {
+            document.getElementById('smsText').value = presets[type];
+        }
+        
+        document.getElementById('smsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const smsFrom = document.getElementById('smsFrom').value;
+            const smsText = document.getElementById('smsText').value;
+            const successMsg = document.getElementById('successMsg');
+            const errorMsg = document.getElementById('errorMsg');
+            
+            // Hide previous messages
+            successMsg.style.display = 'none';
+            errorMsg.style.display = 'none';
+            
+            try {
+                const timestamp = Date.now();
+                
+                // Send to webhook (simulating SMS Forwarder)
+                const response = await fetch(
+                    `${API_BASE}/sms-ingest.php?phone_number=%2B26658398399&key=5C68E861B159980`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            from: smsFrom,
+                            text: smsText,
+                            sentStamp: timestamp,
+                            receivedStamp: timestamp,
+                            sim: 'SIM1'
+                        })
+                    }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    successMsg.textContent = '✅ SMS sent successfully! Check your dashboard in a few seconds.';
+                    successMsg.style.display = 'block';
+                    document.getElementById('smsForm').reset();
+                    document.getElementById('smsFrom').value = '+26652000002';
+                } else {
+                    throw new Error(data.message || 'Failed to send SMS');
+                }
+            } catch (err) {
+                console.error('Full error:', err);
+                console.error('Error type:', err.constructor.name);
+                console.error('Error message:', err.message);
+                errorMsg.textContent = '❌ Error: ' + err.message + ' (Check console for details)';
+                errorMsg.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

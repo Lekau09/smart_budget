@@ -1,0 +1,3 @@
+[2026-02-01 20:22:04] From: SMS System | Text: Transact ID 00P4GHK0CR7S Confirmed. On 15/2/26  at 4:55 PM. Withdraw M50.00 from  6118 - MTN General Cafe. New available balance is M645.59. Customer Care :114. | Sent: 1769973724505 | Received: 1769973724551 | SIM: SIM1
+[2026-02-15 19:56:57] From: SMS System | Text: Ecocash: CashOut Confirmation: M 90 from 00100737-ALUMNUS  TUCKSHOP MsuRoma .Approval Code :CO260213.1744.B48519. New Wallet balance: M 8.94.Thank you! | Sent: 1771181815199 | Received: 1771181815199 | SIM: SIM2
+[2026-02-02 12:22:00] From: SMS System | Text: FNB:-) M760.00 withdrawn from Smart Account..233594 @ Opercent ATM. Avail M484.  2Feb 12:22 | Sent: 1771345320000 | Received: 1771345320000 | SIM: SIM3

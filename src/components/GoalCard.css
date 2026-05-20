@@ -1,0 +1,303 @@
+/* ============================================
+   GOAL CARD - FINTECH DESIGN SYSTEM
+   Professional, minimal, interactive
+   ============================================ */
+
+/* Card Container */
+.goal-card {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.goal-card:hover {
+  border-color: var(--border-main);
+  box-shadow: var(--shadow-sm);
+}
+
+.goal-card:focus {
+  outline: 2px solid var(--primary-main);
+  outline-offset: 2px;
+}
+
+/* Collapsed State */
+.goal-card-collapsed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.goal-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.goal-card-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: #000000;
+  margin: 0;
+  line-height: 1.3;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goal-card-percentage {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: #000000;
+  flex-shrink: 0;
+}
+
+/* Progress Bar Container */
+.goal-card-progress-wrapper {
+  width: 100%;
+}
+
+.goal-card-progress-bar {
+  height: 4px;
+  background-color: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Semantic progress colors */
+.goal-card-progress-bar.neutral {
+  background-color: var(--bg-tertiary);
+}
+
+.goal-card-progress-bar.neutral .goal-card-progress-fill {
+  background-color: #9ca3af; /* muted gray */
+}
+
+.goal-card-progress-bar.primary .goal-card-progress-fill {
+  background-color: var(--primary-main);
+}
+
+.goal-card-progress-bar.amber .goal-card-progress-fill {
+  background-color: var(--warning);
+}
+
+.goal-card-progress-bar.success .goal-card-progress-fill {
+  background-color: var(--success);
+}
+
+.goal-card-progress-fill {
+  height: 100%;
+  width: 0%;
+  transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 2px;
+}
+
+/* Amounts Display */
+.goal-card-amounts {
+  font-size: var(--font-size-sm);
+  color: #000000;
+  font-weight: 500;
+}
+
+.goal-card-amount {
+  display: inline-block;
+}
+
+/* Expanded State */
+.goal-card.expanded {
+  /* Slightly elevated when expanded */
+  box-shadow: var(--shadow-md);
+}
+
+.goal-card-expanded {
+  animation: slideDown 200ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Divider */
+.goal-card-divider {
+  height: 1px;
+  background-color: var(--border-light);
+  margin: var(--spacing-md) 0;
+}
+
+/* Details Grid */
+.goal-card-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-lg) var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
+}
+
+.goal-card-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.goal-card-detail-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: #000000;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.goal-card-detail-value {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: #000000;
+}
+
+.goal-card-detail-value.completed {
+  color: var(--success);
+}
+
+/* Status Badge */
+.goal-card-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  width: fit-content;
+}
+
+.goal-card-status.success {
+  background-color: var(--success-light);
+  color: var(--success-dark);
+}
+
+.goal-card-status.danger {
+  background-color: var(--danger-light);
+  color: var(--danger-dark);
+}
+
+.goal-card-status.neutral {
+  background-color: var(--bg-tertiary);
+  color: #000000;
+}
+
+/* Action Buttons Container */
+.goal-card-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+/* Button Styles */
+.goal-card-btn {
+  flex: 1;
+  min-width: 100px;
+  padding: 10px 12px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.goal-card-btn:focus {
+  outline: 2px solid var(--primary-main);
+  outline-offset: 1px;
+}
+
+.goal-card-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Primary Button: Add Savings */
+.goal-card-btn-primary {
+  background-color: var(--text-primary);
+  color: var(--text-inverse);
+}
+
+.goal-card-btn-primary:hover:not(:disabled) {
+  background-color: var(--primary-main);
+  box-shadow: var(--shadow-sm);
+}
+
+.goal-card-btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Danger Button: Delete */
+.goal-card-btn-danger {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.goal-card-btn-danger:hover:not(:disabled) {
+  background-color: var(--danger-light);
+  color: var(--danger);
+  border-color: var(--danger-light);
+}
+
+.goal-card-btn-danger:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Secondary Button: Edit */
+.goal-card-btn-secondary {
+  background-color: transparent;
+  color: var(--primary-main);
+  border: 1px solid var(--primary-main);
+}
+
+.goal-card-btn-secondary:hover:not(:disabled) {
+  background-color: var(--primary-lighter);
+  color: var(--primary-main);
+  border-color: var(--primary-main);
+}
+
+.goal-card-btn-secondary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Animation: Slide Down for Expanded Content */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .goal-card {
+    padding: var(--spacing-md);
+  }
+
+  .goal-card-details {
+    gap: var(--spacing-md);
+  }
+
+  .goal-card-percentage {
+    font-size: var(--font-size-base);
+  }
+
+  .goal-card-btn {
+    padding: 8px 10px;
+    font-size: var(--font-size-xs);
+  }
+}

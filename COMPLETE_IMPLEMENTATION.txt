@@ -1,0 +1,2688 @@
+================================================================================
+SMARTSPEND — COMPLETE IMPLEMENTATION DOCUMENTATION
+================================================================================
+Project: SmartSpend Personal Finance Manager
+Type: Full-stack web application with ML-powered SMS transaction categorization
+Platform: Windows (XAMPP) — React frontend, PHP backend, Python Flask ML service
+Last Updated: April 2026
+================================================================================
+
+
+TABLE OF CONTENTS
+=================
+ 1. Project Overview
+ 2. Technology Stack
+ 3. System Architecture
+ 4. Port Configuration
+ 5. Complete File Structure
+ 6. Database Design & Schema
+ 7. Backend — PHP API Endpoints
+ 8. Backend — SGDRegressor Prediction System
+ 9. Backend — Flask SMS Classifier Service
+10. Frontend — React Application
+11. Frontend — Routing & Navigation
+12. Frontend — State Management
+13. Frontend — Page Implementations
+14. Frontend — Component Library
+15. Frontend — Design System
+16. Feature: SMS Auto-Categorization Pipeline
+17. Feature: Spending Prediction (SGDRegressor)
+18. Feature: Gamification System
+19. Feature: Notification System
+20. Feature: Savings Goals
+21. Feature: Budget Tracking & Alerts
+22. Feature: Transaction Management
+23. Feature: Analytics Dashboard
+24. Feature: Authentication & User Management
+25. Feature: Onboarding Wizard
+26. Feature: Auto SMS Processor
+27. Feature: Alert Banner System
+28. Feature: Categorization Feedback (Active Learning)
+29. Feature: Cash Withdrawal Handling
+30. Feature: Export & PDF Reports
+31. Feature: Weekly Digest
+32. Feature: Push Notifications
+33. Feature: AI Financial Advisor
+34. Configuration Files
+35. Build & Deployment
+36. Apache & Network Configuration
+37. Debug & Test Scripts
+38. Data Flow Diagrams
+39. Security Considerations
+40. Known Limitations
+
+
+================================================================================
+1. PROJECT OVERVIEW
+================================================================================
+
+SmartSpend is a personal finance management web application designed for
+students in Lesotho. It automates expense tracking through SMS parsing of
+bank transaction messages, provides spending predictions via machine learning,
+and encourages sustained financial habits through gamification.
+
+Core capabilities:
+  - SMS-based transaction auto-import from 4 banks (FNB, Standard Lesotho
+    Bank, M-Pesa, Nedbank)
+  - Three-layer ML classification (hardcoded dictionary → learned memory →
+    Naive Bayes TF-IDF)
+  - Spending prediction using SGDRegressor trained on 500+ user records
+  - Progressive prediction fallback for users with 0-3 months of data
+  - Monthly budget setting with spending tracking
+  - Savings goals with progress tracking
+  - Gamification (XP, levels, 12 badges, 4 monthly challenges)
+  - Real-time dashboard with category pie charts and transaction lists
+  - Analytics with category breakdowns and weekly spending trends
+  - Active learning loop: user corrections teach the AI over time
+
+
+================================================================================
+2. TECHNOLOGY STACK
+================================================================================
+
+Frontend:
+  - React 18.2.0 (component-based UI library)
+  - React Router DOM 6.x (client-side routing)
+  - Recharts 2.10.0 (data visualization: bar charts, pie charts, line charts)
+  - Framer Motion 12.23.26 (animation library)
+  - Lucide React 0.307.0 (icon library)
+  - FontAwesome Free 6.4.0 + React FontAwesome 0.2.0 (additional icons)
+  - Vite 7.2.7 (build tool and dev server)
+  - ESLint 9.39.2 + Prettier 3.8.0 (code quality)
+  - Tailwind CSS (via PostCSS + Autoprefixer) — utility classes
+  - CSS custom properties (design system variables)
+
+Backend (PHP):
+  - PHP 7.4+ with MySQLi extension
+  - Apache web server via XAMPP (port 8080)
+  - MySQL database (InnoDB engine, utf8mb4 charset)
+  - cURL for inter-service communication (PHP → Python)
+
+Backend (Python — SGDRegressor):
+  - Python 3.8+ (Anaconda distribution: C:\Users\lenyo\anaconda3\python.exe)
+  - scikit-learn: SGDRegressor for spending prediction
+  - joblib: model serialization
+  - numpy: numerical operations
+  - Model files: budget_model.pkl, scaler.pkl (StandardScaler)
+  - Metrics: model_metrics.json (R² score stored externally)
+  - Online learning: partial_fit() for month-end model updates
+
+Backend (Python — Flask SMS Classifier):
+  - Flask web framework
+  - Flask-CORS (cross-origin support)
+  - scikit-learn: MultinomialNB + TF-IDF vectorizer (via Pipeline)
+  - pandas: data manipulation for feedback logging
+  - Model file: sms_classifier_v2.pkl
+  - Training dataset: sms_dataset_v2.csv (500,000 synthetic SMS messages)
+  - Feedback log: feedback_log.csv (user confirmations for active learning)
+
+Infrastructure:
+  - XAMPP (Apache + MySQL) on Windows
+  - Node.js for frontend build/dev server
+  - Cloudflare Tunnel (cloudflared.exe.exe) for external access (optional)
+
+
+================================================================================
+3. SYSTEM ARCHITECTURE
+================================================================================
+
+The system uses a multi-service architecture with two distinct backends:
+
+                    ┌─────────────────────────────────┐
+                    │     React SPA (Vite, :5173)      │
+                    │                                  │
+                    │  Dashboard  Transactions         │
+                    │  Savings    Analytics  Settings   │
+                    └────┬──────────────────┬──────────┘
+                         │                  │
+              HTTP JSON  │                  │  HTTP JSON
+              (port 8080)│                  │  (port 5000)
+                         ▼                  ▼
+              ┌──────────────────┐  ┌──────────────────┐
+              │  PHP Backend     │  │  Flask Service   │
+              │  (Apache :8080)  │  │  (Python :5000)  │
+              │                  │  │                  │
+              │  62 API files    │  │  SMS Classifier  │
+              │  User Auth       │  │  Naive Bayes +   │
+              │  Budget CRUD     │  │  TF-IDF          │
+              │  Expense CRUD    │  │  3-layer class.  │
+              │  Savings CRUD    │  │  Active learning │
+              │  Notifications   │  │  Bank detection  │
+              │  Gamification    │  │  Field extraction│
+              │  Reports         │  │                  │
+              └───────┬──────────┘  └──────────────────┘
+                      │
+                      │  subprocess (exec)
+                      │  via predict.php
+                      ▼
+              ┌──────────────────────────┐
+              │  SGDRegressor Pipeline   │
+              │  (Python, called by PHP) │
+              │                          │
+              │  run_prediction.py       │
+              │  budget_model.pkl        │
+              │  scaler.pkl              │
+              │  model_metrics.json      │
+              └──────────────────────────┘
+                      ▲
+                      │  queries
+                      │
+              ┌──────────────────┐
+              │  MySQL Database  │
+              │  smart_budget    │
+              │  8+ tables       │
+              └──────────────────┘
+
+
+Two separate prediction pipelines exist:
+
+Pipeline A — SGDRegressor (Monthly Spending Prediction):
+  User adds expenses → BudgetContext calls get-prediction.php →
+  PHP fetches last 4 months of spending → calls predict.php (PHP bridge) →
+  predict.php spawns Python subprocess → run_prediction.py loads
+  budget_model.pkl + scaler.pkl → predicts deviation from budget →
+  Returns predicted_spend, predicted_deviation, confidence score
+
+Pipeline B — Naive Bayes (SMS Classification):
+  SMS received on phone → SMS Forwarder app → webhook to sms-ingest.php →
+  PHP calls Flask /parse endpoint → classify_sms() runs 3-layer classifier →
+  Returns category, confidence, needs_manual_category →
+  PHP saves to expenses table + creates notification
+
+
+================================================================================
+4. PORT CONFIGURATION
+================================================================================
+
+Service             Port   Purpose
+────────────────────────────────────────────────────────────
+Vite Dev Server     5173   React frontend development server
+Apache (PHP)        8080   REST API endpoints (62 PHP files)
+Flask (SMS Class.)  5000   SMS classification + active learning
+MySQL               3306   Database (smart_budget)
+
+Development detection:
+  - api.js checks if window.location.port is 5173/5174/5175
+  - If dev mode: API_BASE → hostname:8080
+  - If production: API_BASE → window.location.host (same origin)
+  - ML_API_BASE is always http://localhost:5000
+
+Vite proxy configuration (vite.config.js):
+  - Proxies /smart_budget/backend → http://localhost:8080
+  - This allows same-origin requests during development
+
+
+================================================================================
+5. COMPLETE FILE STRUCTURE
+================================================================================
+
+smart_budget/
+│
+├── package.json                          # Project config, dependencies, scripts
+├── vite.config.js                        # Vite build config with proxy
+├── eslint.config.js                      # ESLint configuration
+├── postcss.config.cjs                    # PostCSS configuration
+├── postcss.config.js                     # PostCSS configuration (duplicate)
+├── tailwind.config.cjs                   # Tailwind CSS configuration
+├── tailwind.config.js                    # Tailwind CSS configuration (duplicate)
+├── index.html                            # HTML entry point
+├── index.css                             # Global CSS (root level, legacy)
+├── index.jsx                             # Root JSX entry (legacy, root level)
+├── App.jsx                               # Root App component (legacy, root level)
+├── server.js                             # Node server file
+├── cloudflared.exe.exe                   # Cloudflare tunnel binary (double ext)
+├── CREATE_SHORTCUT.bat                   # Windows shortcut creator
+├── RUN_SMS_EXTRACTOR.bat                 # Batch script for SMS extraction
+├── .gitignore                            # Git ignore rules
+├── .eslintignore                         # ESLint ignore rules
+│
+├── PROJECT_DOCUMENTATION.md              # Consolidated project documentation
+│
+├── src/                                  # ─── FRONTEND SOURCE ───
+│   ├── main.jsx                          # React entry point (ReactDOM.createRoot)
+│   ├── App.jsx                           # Root component with Router + Providers
+│   ├── index.css                         # Global CSS: design system variables
+│   │
+│   ├── router/
+│   │   └── AppRouter.jsx                 # React Router v6: all route definitions
+│   │                                     #   Public: /, /login, /signup
+│   │                                     #   Protected: /app/* with Layout
+│   │                                     #   Legacy redirect: /dashboard → /app/dashboard
+│   │
+│   ├── config/
+│   │   └── api.js                        # API_BASE, ML_API_BASE, helper functions:
+│   │                                     #   parseSMS(), parseSMSBulk(),
+│   │                                     #   confirmSMSCategory(), checkMLHealth()
+│   │
+│   ├── context/
+│   │   ├── BudgetContext.jsx             # BudgetProvider: budget, expenses, goals,
+│   │   │                                 # prediction state + CRUD methods
+│   │   │                                 # fetchDashboard(), fetchExpenses(),
+│   │   │                                 # addExpense(), updateExpense(), deleteExpense(),
+│   │   │                                 # updateBudget(), fetchGoals(), addGoal(),
+│   │   │                                 # updateGoal(), updateGoalDetails(), deleteGoal(),
+│   │   │                                 # fetchPrediction()
+│   │   ├── UserContext.jsx               # Legacy user context (UpdateUser, clearUser)
+│   │   ├── NotificationContext.jsx       # Toast notification system
+│   │   └── FilterContext.jsx             # Filter state management
+│   │
+│   ├── hooks/
+│   │   ├── useAuth.jsx                   # Authentication hook (login/logout/user)
+│   │   ├── useUserAuth.jsx               # User authentication hook variant
+│   │   ├── useLocalStorage.js            # localStorage wrapper (get/set/remove)
+│   │   ├── useNotifications.js           # Notification subscription hook
+│   │   ├── useOnboarding.js              # Onboarding flow state
+│   │   └── usePushNotifications.js       # Push notification subscription
+│   │
+│   ├── Utils/
+│   │   ├── apiPaths.js                   # Centralized API path constants
+│   │   ├── axiosInstance.js              # Axios HTTP client instance
+│   │   ├── confirm_ml_category.js        # ML category confirmation utility
+│   │   ├── data.js                       # Static data/constants
+│   │   ├── gamification.js               # Gamification calculation utilities
+│   │   ├── helper.js                     # General helper functions
+│   │   └── UploadImage.js                # Image upload utility
+│   │
+│   ├── features/
+│   │   ├── dashboard/
+│   │   │   ├── Dashboard.jsx             # Main dashboard page (590 lines)
+│   │   │   │                             # KPI cards (Budget, Spent, Remaining, Saved)
+│   │   │   │                             # Category pie chart, recent transactions
+│   │   │   │                             # SetBudgetModal, AddExpenseModal
+│   │   │   │                             # AutoSMSProcessor, AlertBanner
+│   │   │   │                             # GamificationCard, OnboardingWizard
+│   │   │   ├── Home.jsx                  # Dashboard home sub-page
+│   │   │   ├── Expense.jsx               # Dashboard expense sub-page
+│   │   │   └── Income.jsx                # Dashboard income sub-page
+│   │   │
+│   │   ├── transactions/
+│   │   │   └── Transactions.jsx          # Transaction management page (752 lines)
+│   │   │                                 # Expense list with inline editing
+│   │   │                                 # AI Needs Help banner (review items)
+│   │   │                                 # Cash withdrawal categorization banner
+│   │   │                                 # CategoryPickerModal component
+│   │   │                                 # Search, filter, sort functionality
+│   │   │                                 # AddExpenseModal integration
+│   │   │                                 # CategorizationFeedback component
+│   │   │
+│   │   ├── savings/
+│   │   │   └── Savings.jsx               # Savings goals page (474 lines)
+│   │   │                                 # Goal cards with progress bars
+│   │   │                                 # Create/edit/delete goals
+│   │   │                                 # Add savings contributions
+│   │   │                                 # Overall stats: total saved, active goals
+│   │   │
+│   │   ├── analytics/
+│   │   │   └── Analytics.jsx             # Analytics page
+│   │   │                                 # Predicted Spend card (SGDRegressor)
+│   │   │                                 # Spending by Category (bar chart)
+│   │   │                                 # Weekly Spending (line chart vs budget)
+│   │   │                                 # Category legend with icons
+│   │   │                                 # Weekly summary grid
+│   │   │
+│   │   └── goals/
+│   │       └── Goals.jsx                 # Goals management (uses GoalCard)
+│   │
+│   ├── pages/
+│   │   ├── Landing.jsx                   # Public landing page
+│   │   ├── Login.jsx                     # Login page (root level)
+│   │   ├── Signup.jsx                    # Signup page (root level)
+│   │   ├── Signup_premium.jsx            # Premium signup variant
+│   │   ├── Settings.jsx                  # User settings page
+│   │   ├── DashboardPage.jsx             # Dashboard page wrapper
+│   │   └── Auth/
+│   │       ├── Login.jsx                 # Auth subfolder login
+│   │       └── SignUp.jsx                # Auth subfolder signup
+│   │
+│   ├── components/
+│   │   ├── AlertBanner.jsx               # Warning/info banner component
+│   │   ├── AutoSMSProcessor.jsx          # Auto-processing for SMS transactions
+│   │   ├── BudgetTracker.jsx             # Budget tracking widget
+│   │   ├── Card.jsx                      # Generic card component
+│   │   ├── CashWithdrawalCategorizer.jsx # Cash withdrawal categorization UI
+│   │   ├── CategorizationFeedback.jsx    # Toast feedback for AI learning
+│   │   ├── EmptyState.jsx                # Empty state placeholder
+│   │   ├── ErrorBoundary.jsx             # React error boundary component
+│   │   ├── ExportButton.jsx              # Data export button
+│   │   ├── Financialadvisor.jsx          # AI financial advisor (rule-based Q&A)
+│   │   ├── GamificationCard.jsx          # Gamification display (XP, badges, level)
+│   │   ├── GoalCard.jsx                  # Collapsible savings goal card
+│   │   ├── GoalCard.css                  # GoalCard-specific styles
+│   │   ├── Loading.jsx                   # Loading spinner component
+│   │   ├── LoadingSpinner.jsx            # Alternative loading spinner
+│   │   ├── Navbar.jsx                    # Top navigation bar
+│   │   ├── NotificationBell.jsx          # Notification bell with unread count
+│   │   ├── NotificationPanel.jsx         # Notification dropdown panel
+│   │   ├── OnboardingWizard.jsx          # First-time user onboarding flow
+│   │   ├── PeriodSelector.jsx            # Time period selector (week/month/year)
+│   │   ├── ProtectedRoute.jsx            # Authentication guard for routes
+│   │   ├── PushNotificationSettings.jsx  # Push notification preferences UI
+│   │   ├── SetBudgetModal.jsx            # Budget setting modal dialog
+│   │   ├── SetBudgetModel.jsx            # Budget modal (duplicate variant)
+│   │   ├── Sidebar.jsx                   # Navigation sidebar
+│   │   ├── SMSConfiguration.jsx          # SMS forwarder configuration UI
+│   │   ├── SMSMessageProcessor.jsx       # SMS message processing component
+│   │   ├── SMSTransactionModal.jsx       # SMS transaction detail modal
+│   │   ├── ThemeToggle.jsx               # Dark/light theme toggle
+│   │   ├── ToggleButton.jsx              # Generic toggle button
+│   │   ├── WeeklyDigest.jsx              # Weekly digest email/report component
+│   │   │
+│   │   ├── Cards/
+│   │   │   ├── CharAvatar.jsx            # Character avatar component
+│   │   │   ├── InfoCard.jsx              # Information card component
+│   │   │   └── TransactionInfoCard.jsx   # Transaction detail card
+│   │   │
+│   │   ├── Charts/
+│   │   │   ├── CustomBarChart.jsx        # Recharts bar chart wrapper
+│   │   │   ├── CustomLegend.jsx          # Chart legend component
+│   │   │   ├── CustomPieChart.jsx        # Recharts pie chart wrapper
+│   │   │   └── CustomTooltip.jsx         # Chart tooltip component
+│   │   │
+│   │   ├── Dashboard/
+│   │   │   ├── ExpenseTransactions.jsx   # Dashboard expense transactions list
+│   │   │   ├── FinanceOverview.jsx       # Financial overview widget
+│   │   │   ├── Last30DaysExpense.jsx     # Last 30 days spending chart
+│   │   │   └── RecentTransactions.jsx    # Recent transactions widget
+│   │   │
+│   │   └── layouts/
+│   │       ├── AppLayout.jsx             # Main application layout
+│   │       ├── AuthLayout.jsx            # Authentication pages layout
+│   │       ├── DashboardLayout.jsx       # Dashboard-specific layout
+│   │       ├── GridSection.jsx           # Grid-based section layout
+│   │       ├── LayoutRow.jsx             # Row layout with configurable ratios
+│   │       ├── Navbar.jsx                # Layout navbar component
+│   │       ├── PageContainer.jsx         # Page wrapper with variant support
+│   │       └── SideMenu.jsx              # Side menu component
+│   │
+│   └── assets/
+│       └── react.svg                     # React logo favicon
+│
+├── public/                               # ─── PUBLIC ASSETS ───
+│   ├── sw.js                             # Service worker (push notifications)
+│   ├── sms-simulator.html                # SMS testing simulator page
+│   ├── sms-test-simple.html              # Simple SMS test page
+│   ├── test-api.html                     # API test page
+│   ├── view-sms-logs.html                # SMS log viewer
+│   └── vite.svg                          # Vite favicon
+│
+├── backend/                              # ─── PHP BACKEND ───
+│   ├── config.php                        # Database connection + CORS headers
+│   │                                     #   host=localhost, db=smart_budget,
+│   │                                     #   user=root, pass=root1234
+│   ├── index.php                         # Backend entry point
+│   ├── schema.sql                        # Complete database schema (8 tables)
+│   ├── .env.example                      # Environment variable template
+│   │
+│   ├── api/                              # 62 REST API endpoint files
+│   │   │
+│   │   # ── Authentication ──
+│   │   ├── signup.php                    # POST: Register new user
+│   │   ├── login.php                     # POST: User login
+│   │   ├── logout.php                    # POST: User logout
+│   │   ├── user.php                      # GET: Get user data
+│   │   ├── update-user.php               # POST: Update user profile
+│   │   ├── change-password.php           # POST: Password change
+│   │   ├── login-debug.php               # GET: Login debugging
+│   │   ├── create-test-user.php          # POST: Create test user
+│   │   │
+│   │   # ── Budget Management ──
+│   │   ├── get-budget.php                # GET: Fetch user budget
+│   │   ├── set-budget.php                # POST: Set monthly budget
+│   │   ├── update-budget.php             # POST: Update budget
+│   │   │
+│   │   # ── Dashboard ──
+│   │   ├── get-dashboard.php             # GET: Full dashboard data (budget +
+│   │   │                                 #       expenses + categories + goals)
+│   │   │                                 #       Supports ?month=M&year=Y
+│   │   │
+│   │   # ── Expenses ──
+│   │   ├── get-expenses.php              # GET: Fetch expenses (paginated)
+│   │   ├── add-expense.php               # POST: Add new expense
+│   │   ├── update-expense.php            # POST: Update expense
+│   │   ├── update-expense2.php           # POST: Update expense (variant)
+│   │   ├── delete-expense.php            # POST: Delete expense
+│   │   │
+│   │   # ── Savings Goals ──
+│   │   ├── get-goals.php                 # GET: Fetch savings goals
+│   │   ├── add-goal.php                  # POST: Create savings goal
+│   │   ├── update-goal.php               # POST: Update goal progress
+│   │   ├── delete-goal.php               # POST: Delete goal
+│   │   │
+│   │   # ── Prediction (SGDRegressor) ──
+│   │   ├── get-prediction.php            # POST: ML spending forecast
+│   │   │                                 #       Fetches last 4 months spending,
+│   │   │                                 #       calls predict.php → Python
+│   │   │                                 #       Supports progressive fallback:
+│   │   │                                 #         0 months → budget baseline
+│   │   │                                 #         1 month  → single month
+│   │   │                                 #         2 months → simple average
+│   │   │                                 #         3 months → trend-adjusted
+│   │   │                                 #         4+ months → SGDRegressor
+│   │   │
+│   │   # ── AI Advisor ──
+│   │   ├── ai-advisor.php                # POST: AI financial advisor Q&A
+│   │   │
+│   │   # ── SMS Processing ──
+│   │   ├── sms-ingest.php                # POST: SMS webhook ingestion
+│   │   ├── sms-audit-log.php             # GET: SMS audit log
+│   │   ├── extract-sms-transaction.php   # POST: Extract from raw SMS
+│   │   ├── save-sms-transaction.php      # POST: Save parsed SMS
+│   │   ├── get-sms-messages.php          # GET: Fetch SMS messages
+│   │   ├── setup-sms-ingest.php          # POST: SMS ingest setup
+│   │   ├── insert-test-sms.php           # POST: Insert test SMS
+│   │   ├── test-sms-insert.php           # POST: Test SMS insert
+│   │   │
+│   │   # ── Cash Withdrawal ──
+│   │   ├── categorize_cash_withdrawal.php     # POST: Categorize ATM withdrawal
+│   │   ├── get_uncategorized_withdrawals.php  # GET: Get uncategorized withdrawals
+│   │   ├── check_uncategorized.php             # GET: Check uncategorized txns
+│   │   │
+│   │   # ── Notifications ──
+│   │   ├── notifications.php             # GET: Fetch notifications
+│   │   ├── get-notifications.php         # GET: Fetch notifications (variant)
+│   │   ├── notifications-unread-count.php# GET: Unread notification count
+│   │   ├── mark-notification-read.php    # POST: Mark notification as read
+│   │   ├── notification-read.php         # POST: Read notification
+│   │   ├── save-push-subscription.php    # POST: Save push subscription
+│   │   │
+│   │   # ── Needs Review ──
+│   │   ├── get-needs-review.php          # GET: Items needing AI review
+│   │   ├── get-needs-review (2).php      # GET: Duplicate variant
+│   │   │
+│   │   # ── Gamification ──
+│   │   ├── gamification.php              # GET: XP, level, badges, challenges
+│   │   │                                 #       Calculates from real DB data
+│   │   │
+│   │   # ── Reports ──
+│   │   ├── generate-pdf-report.php       # POST: Generate PDF report
+│   │   ├── budget-alerts.php             # POST: Budget alert notifications
+│   │   │
+│   │   # ── Transactions ──
+│   │   ├── auto-save-transaction.php     # POST: Auto-save parsed SMS expense
+│   │   ├── check_all_transactions.php    # GET: Check all transactions
+│   │   ├── populate_transaction_users.php# POST: Populate transaction users
+│   │   ├── fix_transactions_complete.php # POST: Fix transactions (complete)
+│   │   ├── fix_transactions_table.php    # POST: Fix transactions table
+│   │   ├── assign_user_16.php            # POST: Assign user 16
+│   │   │
+│   │   # ── Setup/Migration ──
+│   │   ├── setup.php                     # POST: General setup
+│   │   ├── setup-database.php            # POST: Database setup
+│   │   ├── setup-db.php                  # POST: DB setup (variant)
+│   │   ├── setup-tables.php              # POST: Table setup
+│   │   ├── migrate.php                   # POST: Database migration
+│   │   │
+│   │   # ── CORS/Utility ──
+│   │   ├── cors-headers.php              # CORS headers helper
+│   │   ├── test.php                      # GET: General test endpoint
+│   │   ├── test-add-expense.php          # POST: Test add expense
+│   │   ├── test-complete-flow.php        # POST: Test complete flow
+│   │   ├── test_categorize.php           # POST: Test categorization
+│   │   └── debug-db.php                  # GET: Database debugging
+│   │
+│   ├── helpers/
+│   │   └── NotificationManager.php       # Notification management class
+│   │
+│   ├── migrations/
+│   │   └── add_description_to_expenses.sql # Migration: add description column
+│   │
+│   ├── ml/                               # ─── SGDRegressor Pipeline ───
+│   │   ├── predict.php                   # PHP bridge: receives JSON, spawns
+│   │   │                                 # Python subprocess, returns result
+│   │   │                                 # Input: budget, month1-4 spend
+│   │   │                                 # Output: predicted_spend, deviation,
+│   │   │                                 #           r2_score
+│   │   ├── run_prediction.py             # Python script (122 lines)
+│   │   │                                 # Loads budget_model.pkl + scaler.pkl
+│   │   │                                 # Computes deviations from budget
+│   │   │                                 # Scales features, predicts deviation
+│   │   │                                 # Returns predicted_spend, r2_score
+│   │   │                                 # R² loaded from model_metrics.json
+│   │   ├── budget_model.pkl              # Trained SGDRegressor model file
+│   │   ├── scaler.pkl                    # StandardScaler for normalization
+│   │   ├── model_metrics.json            # R² score and performance metrics
+│   │   ├── evaluate_model.py             # Standalone model evaluation script
+│   │   ├── update_model_month_end.php    # Month-end update orchestrator
+│   │   ├── update_model_partial_fit.py   # Python: partial_fit() incremental
+│   │   └── __pycache__/                  # Python bytecode cache
+│   │
+│   ├── app.py                            # ─── Flask SMS Classifier ───
+│   │                                     # (417 lines — SMS classification only)
+│   │                                     # Endpoints:
+│   │                                     #   POST /parse          — single SMS
+│   │                                     #   POST /parse_bulk     — up to 500
+│   │                                     #   POST /confirm_category — feedback
+│   │                                     #   GET  /categories      — category list
+│   │                                     #   GET  /model_stats     — feedback stats
+│   │                                     #   GET  /health          — service health
+│   │                                     # Algorithm: MultinomialNB + TF-IDF
+│   │                                     # KNOWN_STORES dict (Layer 0)
+│   │                                     # store_memory (Layer 1, learned)
+│   │                                     # ML classifier (Layer 2, fallback)
+│   │                                     # Active learning: feedback_log.csv
+│   │                                     # MIN_CONFIRMATIONS = 5
+│   │                                     # CONFIDENCE_THRESHOLD = 0.55
+│   │                                     # Cash withdrawal exclusion logic
+│   │                                     # Bank detection patterns (FNB, SLB,
+│   │                                     #   M-Pesa, Nedbank)
+│   │
+│   ├── database_config.py                # Python database configuration
+│   ├── setup_db.py                       # Python database setup script
+│   │
+│   ├── SMS Training Files:
+│   ├── sms_classifier.pkl                # Trained classifier model (v1)
+│   ├── sms_classifier_v2.pkl             # Trained classifier model (v2)
+│   ├── sms_dataset_v2.csv                # Training dataset (500K messages)
+│   ├── feedback_log.csv                  # Active learning feedback data
+│   │
+│   ├── Extract SMS with User Linking.py  # Main SMS extraction with user linking
+│   ├── generate_dataset.py               # Generate synthetic training dataset
+│   ├── sms_extract_minimal.py            # Minimal SMS extraction
+│   ├── sms_processor_simple.py           # Simple SMS processor
+│   │
+│   ├── Data Files:
+│   ├── sms_log.txt                       # SMS processing log
+│   ├── debug_test.txt                    # Debug output
+│   │
+│   └── Debug/Test Scripts:
+│       ├── check_db.php                  # Check database connection
+│       ├── check-create-user.php         # Check/create user
+│       ├── check-users-schema.php        # Check users table schema
+│       ├── insert-dummy-sms.php          # Insert dummy SMS data
+│       ├── insert-test-sms.php           # Insert test SMS
+│       ├── run-migrations.php            # Run database migrations
+│       ├── Sms_receiver.php              # SMS receiver script
+│       ├── test_login_debug.php          # Login debugging
+│       ├── test_prescription.php         # Prescription test
+│       ├── test-sms-ingest.php           # Test SMS ingestion
+│       └── verify-sms.php                # Verify SMS data
+│
+├── components/                           # ─── LEGACY/ROOT-LEVEL COMPONENTS ───
+│   ├── AddExpenseModal.jsx               # Expense entry modal (root level)
+│   ├── CategoryConfirmationModal.jsx     # Category confirmation dialog
+│   ├── Dashboard.jsx                     # Dashboard component (root level)
+│   ├── ErrorBoundary.jsx                 # Error boundary (root level)
+│   ├── ExpenseChart.jsx                  # Expense chart component
+│   ├── FixedHeader.jsx                   # Fixed header component
+│   ├── Header.jsx                        # Header component
+│   ├── PushNotificationSettings.jsx      # Push notification settings
+│   ├── RecentTransactions.jsx            # Recent transactions list
+│   ├── SetBudgetModal.jsx                # Budget modal (root level)
+│   ├── Sidebar.jsx                       # Sidebar (root level)
+│   ├── SidebarItem.jsx                   # Sidebar item component
+│   ├── SummaryCard.jsx                   # Summary card component
+│   └── TransactionsPage.jsx              # Transactions page (root level)
+│
+├── test_*.ps1                            # ─── POWERSHELL TEST SCRIPTS ───
+│   ├── test_ml_accuracy.ps1              # Test ML classification accuracy
+│   ├── test-api.ps1                      # Test API endpoints
+│   ├── test-end-to-end.ps1               # End-to-end test
+│   └── test-sms-api.ps1                  # Test SMS API
+│
+└── test-*.php                            # ─── ROOT-LEVEL PHP DEBUG SCRIPTS ───
+    ├── add-duplicate-prevention.php       # Duplicate prevention setup
+    ├── check-duplicates.php               # Check for duplicates
+    ├── check-notifications-schema.php     # Check notifications schema
+    ├── check-sms-table.php                # Check SMS table
+    ├── cleanup-duplicates.php             # Clean up duplicate entries
+    ├── debug-database.php                 # Database debugging
+    ├── debug-sms-direct.php               # Direct SMS debugging
+    ├── debug-sms-flow.php                 # SMS flow debugging
+    ├── debug-sms-notifications.php        # SMS notification debugging
+    ├── test-complete-flow.php             # Complete flow test
+    ├── test-notification-fix.php          # Notification fix test
+    ├── test-signup-direct.php             # Direct signup test
+    ├── test-sms-direct.php                # Direct SMS test
+    ├── test-webhook-url.php               # Webhook URL test
+    ├── test-webhook.php                   # Webhook test
+    └── test-page.html                     # HTML test page
+
+
+================================================================================
+6. DATABASE DESIGN & SCHEMA
+================================================================================
+
+Database: smart_budget
+Engine: InnoDB
+Charset: utf8mb4 (unicode collation)
+
+Table: users
+────────────────────────────────────────────────────────────
+Column          Type              Constraints
+────────────────────────────────────────────────────────────
+id              INT               AUTO_INCREMENT PRIMARY KEY
+name            VARCHAR(255)      NOT NULL
+email           VARCHAR(255)      UNIQUE NOT NULL
+password        VARCHAR(255)      NOT NULL
+phone_number    VARCHAR(20)       UNIQUE NOT NULL
+ingest_secret   VARCHAR(255)      UNIQUE NOT NULL
+created_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP
+updated_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP ON UPDATE
+────────────────────────────────────────────────────────────
+Indexes: idx_phone, idx_email
+
+Purpose: User accounts with phone number for SMS forwarding
+and ingest_secret for webhook authentication.
+
+Table: expenses
+────────────────────────────────────────────────────────────
+Column          Type              Constraints
+────────────────────────────────────────────────────────────
+id              INT               AUTO_INCREMENT PRIMARY KEY
+user_id         INT               NOT NULL, FK → users(id)
+description     VARCHAR(255)      DEFAULT NULL
+amount          DECIMAL(12,2)     NOT NULL
+category        VARCHAR(100)      DEFAULT NULL
+date            DATE              NOT NULL
+created_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP
+updated_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP ON UPDATE
+────────────────────────────────────────────────────────────
+Indexes: idx_user, idx_user_date, idx_category, idx_date
+
+Purpose: Expense records. Categories: Food, Groceries,
+Transport, Entertainment, Health, Utilities, Shopping,
+Subscriptions, Other, Income, Salary, Education, Bills.
+
+Table: income
+────────────────────────────────────────────────────────────
+Column          Type              Constraints
+────────────────────────────────────────────────────────────
+id              INT               AUTO_INCREMENT PRIMARY KEY
+user_id         INT               NOT NULL, FK → users(id)
+description     VARCHAR(255)      DEFAULT NULL
+amount          DECIMAL(12,2)     NOT NULL
+source          VARCHAR(100)      DEFAULT NULL
+date            DATE              NOT NULL
+created_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP
+updated_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP ON UPDATE
+────────────────────────────────────────────────────────────
+Indexes: idx_user, idx_user_date, idx_date
+
+Purpose: Income records with source tracking (salary,
+freelance, allowance, etc.).
+
+Table: user_budgets
+────────────────────────────────────────────────────────────
+Column          Type              Constraints
+────────────────────────────────────────────────────────────
+id              INT               AUTO_INCREMENT PRIMARY KEY
+user_id         INT               NOT NULL, FK → users(id)
+month           INT               NOT NULL
+year            INT               NOT NULL
+monthly_budget  DECIMAL(12,2)     DEFAULT 0
+total_spent     DECIMAL(12,2)     DEFAULT 0
+total_saved     DECIMAL(12,2)     DEFAULT 0
+created_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP
+updated_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP ON UPDATE
+────────────────────────────────────────────────────────────
+Unique: unique_user_month_year (user_id, month, year)
+Indexes: idx_user, idx_user_month_year
+
+Purpose: Monthly budget per user. Supports month-specific
+budgets via (month, year) pairs.
+
+Table: budget_categories
+────────────────────────────────────────────────────────────
+Column          Type              Constraints
+────────────────────────────────────────────────────────────
+id              INT               AUTO_INCREMENT PRIMARY KEY
+user_id         INT               NOT NULL, FK → users(id)
+month           INT               NOT NULL
+year            INT               NOT NULL
+category_name   VARCHAR(100)      NOT NULL
+allocated_amount DECIMAL(12,2)    DEFAULT 0
+spent_amount    DECIMAL(12,2)     DEFAULT 0
+created_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP
+updated_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP ON UPDATE
+────────────────────────────────────────────────────────────
+Unique: unique_user_month_year_category
+Indexes: idx_user, idx_user_month_year, idx_category
+
+Purpose: Per-category budget allocations within a month.
+
+Table: savings_goals
+────────────────────────────────────────────────────────────
+Column          Type              Constraints
+────────────────────────────────────────────────────────────
+id              INT               AUTO_INCREMENT PRIMARY KEY
+user_id         INT               NOT NULL, FK → users(id)
+month           INT               NOT NULL
+year            INT               NOT NULL
+goal_name       VARCHAR(255)      NOT NULL
+target_amount   DECIMAL(12,2)     DEFAULT 0
+current_amount  DECIMAL(12,2)     DEFAULT 0
+deadline        DATE              DEFAULT NULL
+created_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP
+updated_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP ON UPDATE
+────────────────────────────────────────────────────────────
+Unique: unique_user_month_year_goal
+Indexes: idx_user, idx_user_month_year
+
+Purpose: Savings goals with progress tracking.
+
+Table: sms_raw_ingest
+────────────────────────────────────────────────────────────
+Column          Type              Constraints
+────────────────────────────────────────────────────────────
+id              INT               AUTO_INCREMENT PRIMARY KEY
+user_id         INT               NOT NULL, FK → users(id)
+sms_from        VARCHAR(255)      NOT NULL
+sms_text        LONGTEXT          NOT NULL
+sent_stamp      BIGINT            DEFAULT NULL
+received_stamp  BIGINT            NOT NULL
+sim_slot        VARCHAR(10)       DEFAULT NULL
+sms_hash        VARCHAR(64)       UNIQUE NOT NULL
+is_duplicate    TINYINT(1)        DEFAULT 0
+created_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP
+────────────────────────────────────────────────────────────
+Indexes: idx_user, idx_hash, idx_received
+
+Purpose: Raw SMS ingestion from webhook. SMS hash prevents
+duplicates. Supports SIM slot tracking.
+
+Table: sms_transactions
+────────────────────────────────────────────────────────────
+Column          Type              Constraints
+────────────────────────────────────────────────────────────
+id              INT               AUTO_INCREMENT PRIMARY KEY
+user_id         INT               NOT NULL, FK → users(id)
+sms_raw_id      INT               DEFAULT NULL, FK → sms_raw_ingest(id)
+transaction_type VARCHAR(50)      DEFAULT NULL
+sender          VARCHAR(255)      DEFAULT NULL
+amount          DECIMAL(12,2)     DEFAULT NULL
+description     VARCHAR(255)      DEFAULT NULL
+transaction_date DATETIME         DEFAULT NULL
+parsed_at       TIMESTAMP         DEFAULT CURRENT_TIMESTAMP
+────────────────────────────────────────────────────────────
+Indexes: idx_user, idx_transaction_type
+
+Purpose: Parsed banking SMS transactions. Links to raw
+SMS via sms_raw_id.
+
+Table: transactions
+────────────────────────────────────────────────────────────
+Column          Type              Constraints
+────────────────────────────────────────────────────────────
+id              INT               AUTO_INCREMENT PRIMARY KEY
+user_id         INT               NOT NULL, FK → users(id)
+sms_raw_id      INT               DEFAULT NULL, FK → sms_raw_ingest(id)
+log_date        VARCHAR(10)       DEFAULT NULL
+log_time        VARCHAR(10)       DEFAULT NULL
+sender          VARCHAR(255)      DEFAULT NULL
+sim             VARCHAR(10)       DEFAULT NULL
+trans_date      VARCHAR(10)       DEFAULT NULL
+trans_time      VARCHAR(10)       DEFAULT NULL
+transaction_type VARCHAR(50)      DEFAULT NULL
+total_amount    DECIMAL(12,2)     DEFAULT NULL
+recipient_source VARCHAR(255)     DEFAULT NULL
+reference       VARCHAR(100)      DEFAULT NULL
+is_categorized  TINYINT(1)        DEFAULT 0
+categorized_at  TIMESTAMP         NULL DEFAULT NULL
+cash_usage_category VARCHAR(100)  DEFAULT NULL
+cash_usage_description LONGTEXT   DEFAULT NULL
+created_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP
+updated_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP ON UPDATE
+────────────────────────────────────────────────────────────
+Indexes: idx_user, idx_transaction_type, idx_trans_date,
+         idx_reference, idx_is_categorized
+
+Purpose: Full transaction records with categorization for
+cash withdrawals and other special transactions.
+
+Table: notifications
+────────────────────────────────────────────────────────────
+Column          Type              Constraints
+────────────────────────────────────────────────────────────
+id              INT               AUTO_INCREMENT PRIMARY KEY
+user_id         INT               NOT NULL, FK → users(id)
+type            ENUM('sms','expense','income','budget',
+                    'savings','system') NOT NULL
+title           VARCHAR(255)      NOT NULL
+message         TEXT              NOT NULL
+action_url      VARCHAR(500)      DEFAULT NULL
+reference_id    INT               DEFAULT NULL
+reference_type  VARCHAR(50)       DEFAULT NULL
+is_read         TINYINT(1)        DEFAULT 0
+created_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP
+────────────────────────────────────────────────────────────
+Indexes: idx_user, idx_is_read, idx_created, idx_user_read
+
+Purpose: User notifications. Supports filtering by type
+and read/unread status.
+
+Table: schema_version
+────────────────────────────────────────────────────────────
+Column          Type              Constraints
+────────────────────────────────────────────────────────────
+version         INT               PRIMARY KEY
+name            VARCHAR(255)      NOT NULL
+description     TEXT
+applied_at      TIMESTAMP         DEFAULT CURRENT_TIMESTAMP
+────────────────────────────────────────────────────────────
+
+Purpose: Schema version tracking. Currently at version 2.
+
+Foreign Key Relationships:
+  expenses.user_id → users.id
+  income.user_id → users.id
+  user_budgets.user_id → users.id
+  budget_categories.user_id → users.id
+  savings_goals.user_id → users.id
+  sms_raw_ingest.user_id → users.id
+  sms_transactions.user_id → users.id
+  sms_transactions.sms_raw_id → sms_raw_ingest.id
+  transactions.user_id → users.id
+  transactions.sms_raw_id → sms_raw_ingest.id
+  notifications.user_id → users.id
+
+All FKs use ON DELETE CASCADE (except sms_raw_id which uses
+ON DELETE SET NULL).
+
+
+================================================================================
+7. BACKEND — PHP API ENDPOINTS (62 FILES)
+================================================================================
+
+All endpoints are located in backend/api/ and accessed via:
+  {API_BASE}/filename.php
+
+Authentication endpoints:
+  POST signup.php
+    Input:  { name, email, password, phone_number }
+    Output: { success, user_id, token }
+    Generates unique ingest_secret for SMS webhook auth.
+    Hashes password before storage.
+
+  POST login.php
+    Input:  { email, password }
+    Output: { success, user, token }
+    Validates credentials, returns user object.
+
+  POST logout.php
+    Clears session/token.
+
+  GET user.php?user_id=X
+    Returns user profile data.
+
+  POST update-user.php
+    Input:  { user_id, name?, phone_number?, email? }
+    Updates user profile fields.
+
+  POST change-password.php
+    Input:  { user_id, old_password, new_password }
+    Validates old password, updates to new one.
+
+Budget endpoints:
+  GET get-budget.php?user_id=X
+    Returns current month's budget record.
+
+  POST set-budget.php
+    Input:  { user_id, monthly_budget, category_budgets?[] }
+    Creates or updates monthly budget.
+    Optionally sets per-category allocations.
+
+  POST update-budget.php
+    Input:  { user_id, monthly_budget }
+    Updates existing budget amount.
+
+Dashboard endpoint:
+  GET get-dashboard.php?user_id=X&month=M&year=Y
+    Returns aggregated dashboard data:
+    - Budget record (monthly_budget, total_spent, total_saved)
+    - Expenses for the specified month
+    - Expenses grouped by category
+    - Savings goals for the month
+    - Period context (current month/year)
+
+Expense endpoints:
+  GET get-expenses.php?user_id=X&limit=N&offset=O&category=C&sort=S
+    Paginated expense list with optional category filter and sort.
+
+  POST add-expense.php
+    Input:  { user_id, amount, category, description?, date }
+    Creates new expense record.
+    Recalculates total_spent in user_budgets.
+
+  POST update-expense.php / update-expense2.php
+    Input:  { expense_id, amount?, category?, description?, date? }
+    Updates expense fields.
+    Recalculates category totals.
+
+  POST delete-expense.php
+    Input:  { expense_id }
+    Deletes expense, recalculates totals.
+
+Savings goals endpoints:
+  GET get-goals.php?user_id=X&month=M&year=Y
+    Returns all savings goals for the period.
+
+  POST add-goal.php
+    Input:  { user_id, goal_name, target_amount, month?, year? }
+    Creates new savings goal.
+
+  POST update-goal.php
+    Input:  { goal_id, current_amount? }
+    Updates goal progress.
+
+  POST update-goal.php (alternative: updates goal details)
+    Input:  { goal_id, goal_name?, target_amount?, deadline? }
+    Updates goal metadata.
+
+  POST delete-goal.php
+    Input:  { goal_id }
+    Deletes savings goal.
+
+Prediction endpoint (SGDRegressor):
+  POST get-prediction.php
+    Input:  { user_id }
+    Process:
+    1. Fetches user's monthly budget
+    2. Queries last 4 completed months of spending
+    3. If < 4 months: uses statistical fallback
+       - 0 months: budget baseline (confidence 20%)
+       - 1 month: single month actual (confidence 30%)
+       - 2 months: simple average (confidence 50%)
+       - 3 months: trend-adjusted average (confidence 65%)
+    4. If 4+ months: calls predict.php → Python SGDRegressor
+    5. Python computes deviations, scales, predicts
+    6. Returns predicted_spend, deviation, confidence
+    Output: { success, predicted_spend, predicted_deviation,
+              budget_used, months_used, month_data[],
+              confidence, prediction_method }
+    prediction_method values: "ml_model", "trend_adjusted",
+      "simple_average", "single_month", "budget_baseline"
+
+AI Advisor endpoint:
+  POST ai-advisor.php
+    Input:  { user_id, question }
+    Returns rule-based financial advice based on spending data.
+
+SMS endpoints:
+  POST sms-ingest.php
+    Webhook endpoint for SMS Forwarder app.
+    Authenticates via ingest_secret.
+    Parses incoming SMS, calls Flask /parse.
+    Saves parsed transaction to expenses.
+    Creates notification.
+
+  POST auto-save-transaction.php
+    Called by Python SMS extractor.
+    Input: { user_id, amount, category, description,
+             transaction_type, store, date, raw_sms, needs_manual }
+    Skips Deposit/Income/Transfer types.
+    Cash withdrawals get category='Other'.
+    Creates notification with category emoji.
+    Uses 'message' column (detects schema at runtime).
+
+  GET get-needs-review.php?user_id=X
+    Returns expenses with category='Other' that are purchases
+    (excludes cash withdrawals).
+    Used by "AI Needs Help" banner.
+
+  GET get-sms-messages.php?user_id=X
+    Returns raw SMS messages for the user.
+
+Cash withdrawal endpoints:
+  POST categorize_cash_withdrawal.php
+    Input:  { transaction_id, category, description? }
+    Categorizes an ATM withdrawal.
+    Withdrawals do NOT train the SMS classifier.
+
+  GET get_uncategorized_withdrawals.php?user_id=X
+    Returns uncategorized cash withdrawals.
+
+  GET check_uncategorized.php?user_id=X
+    Checks for any uncategorized transactions.
+
+Notification endpoints:
+  GET notifications.php?user_id=X&limit=20&offset=0&filter=all
+    Returns paginated notifications with unread count.
+    Filter: 'all', 'unread', or specific type.
+
+  GET get-notifications.php
+    Variant of notifications endpoint.
+
+  GET notifications-unread-count.php?user_id=X
+    Returns count of unread notifications.
+
+  POST mark-notification-read.php
+    Input:  { notification_id } or { all: true }
+    Marks single or all notifications as read.
+
+  POST notification-read.php
+    Variant of mark-read endpoint.
+
+  POST save-push-subscription.php
+    Input:  { user_id, endpoint, keys: { p256dh, auth } }
+    Saves web push subscription.
+
+Gamification endpoint:
+  GET gamification.php?user_id=X
+    Calculates from real database:
+    - XP: 10/transaction, 5/categorized, 100/goal completed,
+          50/month under budget, 5/streak day
+    - Level: geometric progression (×1.2 per level, base 100 XP)
+    - Streak: consecutive days with expenses (backwards from today)
+    - 12 badges (only earned shown, locked hidden)
+    - 4 monthly challenges with progress tracking
+    Output: { success, xp, level, next_xp, progress_pct,
+              streak, badges[], challenges[], stats{} }
+
+Reports:
+  POST generate-pdf-report.php
+    Generates PDF report of user's finances.
+
+  POST budget-alerts.php
+    Sends budget alert notifications at thresholds:
+    50%, 75%, 90%, 100% of budget used.
+
+
+================================================================================
+8. BACKEND — SGDRegressor PREDICTION SYSTEM
+================================================================================
+
+Purpose: Predict end-of-month spending based on historical
+budget-vs-actual patterns.
+
+Algorithm: SGDRegressor (Stochastic Gradient Descent)
+  - Loss function: squared_loss (linear regression via SGD)
+  - Supports partial_fit() for incremental learning
+  - Trained on 500+ user records
+  - R² score: ~0.79-0.81 (stored in model_metrics.json)
+
+Features (4 inputs):
+  1. Month 1 spending deviation (month1_spend - budget)
+  2. Month 2 spending deviation (month2_spend - budget)
+  3. Month 3 spending deviation (month3_spend - budget)
+  4. Month 4 spending deviation (month4_spend - budget)
+
+Target: Month 5 spending deviation from budget
+
+Preprocessing:
+  - StandardScaler: normalizes 4 deviation features
+  - Features scaled before prediction
+
+Pipeline flow:
+  1. User opens Dashboard/Analytics page
+  2. BudgetContext.fetchPrediction(user_id) fires
+  3. GET /api/get-prediction.php receives POST { user_id }
+  4. PHP queries user_budgets for monthly_budget
+  5. PHP queries expenses for last 4 months totals
+     (excludes current month: DATE(date) < first-of-month)
+  6. If < 4 months available, uses statistical fallback
+  7. If 4+ months, PHP calls predict.php via cURL
+     URL: http://{HTTP_HOST}/smart_budget/backend/ml/predict.php
+     POST: { budget, month1_spend, month2_spend,
+             month3_spend, month4_spend }
+  8. predict.php writes JSON to temp file
+  9. predict.php spawns Python subprocess:
+     python.exe run_prediction.py {temp_file}
+ 10. run_prediction.py:
+     a. Loads budget_model.pkl (SGDRegressor)
+     b. Loads scaler.pkl (StandardScaler)
+     c. Computes deviations = [m1-budget, m2-budget, m3-budget, m4-budget]
+     d. Scales deviations via scaler.transform()
+     e. Predicts: predicted_deviation = model.predict(scaled)
+     f. Computes: predicted_spend = budget + predicted_deviation
+     g. Ensures: predicted_spend >= 0
+     h. Loads R² from model_metrics.json (default 0.79)
+     i. Returns JSON: { success, predicted_deviation,
+                        predicted_spend, r2_score }
+ 11. predict.php parses Python output, returns to PHP caller
+ 12. get-prediction.php returns to frontend
+ 13. BudgetContext stores in prediction state
+ 14. Analytics page displays predicted spend card
+
+Online Learning (Month-End Update):
+  - At month end, collect all users' completed month data
+  - Run: php update_model_month_end.php
+  - This calls update_model_partial_fit.py which:
+    a. Loads existing model and scaler
+    b. Appends new month's deviations to training set
+    c. Calls model.partial_fit(new_data)
+    d. Recalculates R² on combined dataset
+    e. Saves updated model.pkl, scaler.pkl, model_metrics.json
+  - R² will fluctuate ±2-3% normally (feature, not bug)
+  - Large drops (>10%) indicate data quality issues
+
+Progressive Prediction Fallback:
+  Months | Method            | Confidence
+  ───────┼───────────────────┼────────────
+  0      | Budget baseline   | 20%
+  1      | Single month      | 30%
+  2      | Simple average    | 50%
+  3      | Trend-adjusted    | 65%
+  4+     | SGDRegressor ML   | 79%+
+
+Trend-adjusted (3 months):
+  average = (m1 + m2 + m3) / 3
+  trend = m3 - m1
+  prediction = average + 0.25 * trend
+  (25% weight on recent trend direction)
+
+
+================================================================================
+9. BACKEND — FLASK SMS CLASSIFIER SERVICE (app.py)
+================================================================================
+
+Location: backend/app.py (417 lines)
+Port: 5000
+Framework: Flask + Flask-CORS
+
+Algorithm: Multinomial Naive Bayes + TF-IDF Vectorizer
+  - Implemented as sklearn Pipeline
+  - Trained on 500,000 synthetic SMS messages
+  - 8 categories: Food, Groceries, Transport, Health,
+    Shopping, Entertainment, Subscriptions, Utilities
+  - Test accuracy: 99.4%
+
+Three-Layer Classification:
+  Layer 0 — Hardcoded dictionary (instant, confidence=1.0):
+    KNOWN_STORES dict with ~100 store→category mappings
+    Examples: KFC→Food, Netflix→Subscriptions, Shoprite→Groceries,
+              Engen→Transport, Clicks→Health, LEC→Utilities
+
+  Layer 1 — Learned store memory (confidence=1.0):
+    store_memory dict built from user confirmations
+    Populated when a store reaches MIN_CONFIRMATIONS (5)
+    Stored in memory (not persisted between restarts)
+    Loaded from feedback_log.csv at startup
+
+  Layer 2 — Naive Bayes ML classifier:
+    TF-IDF vectorizes SMS text
+    MultinomialNB predicts category
+    If confidence >= CONFIDENCE_THRESHOLD (0.55): auto-assign
+    If confidence < 0.55: return 'Other' + needs_manual_category=true
+
+Bank Detection:
+  detect_bank() scans SMS text for institution patterns:
+  - FNB: "FNB:-)"
+  - Standard Lesotho Bank: "has been reserved from acc"
+  - M-Pesa: "transact id" / "M-Pesa"
+  - Nedbank: "Nedbank confirms"
+  - Ecocash: "ecocash"
+
+Field Extraction:
+  extract_fields() uses bank-specific regex patterns:
+  - Amount: patterns like "M(amount) reserved for purchase"
+  - Store name: extracted from transaction description
+  - Balance: remaining balance after transaction
+  - Transaction type: Purchase, Cash Withdrawal, Transfer
+
+Cash Withdrawal Exclusion:
+  - Detected by transaction_type or keyword matching
+  - Keywords: "withdraw", "withdrawn", "cashout", "cash out",
+              "atm", "pay 2wallet", "pay2wallet"
+  - Withdrawals are assigned category='Other'
+  - Withdrawals NEVER train the classifier
+  - Reason: cash destination is unknown
+
+Active Learning:
+  POST /confirm_category
+    Input: { sms, category, store, transaction_type? }
+    Process:
+    1. Checks if transaction is withdrawal → skips training
+    2. Appends confirmation to feedback_log.csv
+    3. Counts confirmations for this store+category combo
+    4. If count >= MIN_CONFIRMATIONS (5):
+       - Adds store to store_memory → auto-categorizes next time
+    5. Retrains SMS model every RETRAIN_EVERY (5) confirmations
+    Output: { success, trained, store, category,
+              confirmations_count, memory_size }
+
+Endpoints:
+  POST /parse
+    Input:  { sms: "SMS text" }
+    Output: { bank, amount, store, balance, category,
+              confidence, needs_manual_category, source,
+              transaction_type, top_predictions[] }
+
+  POST /parse_bulk
+    Input:  { messages: ["sms1", "sms2", ...] } (max 500)
+    Output: { results: [], count: N }
+
+  POST /confirm_category
+    Input:  { sms, category, store, transaction_type? }
+    Output: { success, trained, reason?, store, category,
+              confirmations_count, memory_size }
+
+  GET /categories
+    Output: { categories: [{ name, color }, ...] }
+    Returns 9 categories with hex colors.
+
+  GET /model_stats
+    Output: { feedback_total, feedback_by_category,
+              store_memory, store_memory_size,
+              model_file, retrain_threshold }
+
+  GET /health
+    Output: { status: "ok", model_loaded,
+              feedback_rows, store_memory_size }
+
+Model Files:
+  sms_classifier_v2.pkl — trained Pipeline (TF-IDF + NB)
+  sms_dataset_v2.csv — 500,000 synthetic training messages
+  feedback_log.csv — user confirmation log for active learning
+
+Startup:
+  1. load_or_train_sms_model() — loads .pkl or trains from CSV
+  2. load_store_memory() — loads confirmed stores from feedback_log.csv
+  3. Flask app starts on port 5000
+
+
+================================================================================
+10. FRONTEND — REACT APPLICATION
+================================================================================
+
+Entry point: src/main.jsx
+  - Imports App.jsx from src/App.jsx
+  - Creates root via ReactDOM.createRoot
+  - Wraps in BrowserRouter
+  - Providers: BudgetProvider, UserProvider
+  - Renders <App />
+
+Root App (src/App.jsx):
+  - Wraps entire app in Providers
+  - Renders <AppRouter /> for routing
+
+Providers hierarchy:
+  BrowserRouter
+  └── UserProvider (legacy user context)
+      └── BudgetProvider (budget/expense/goal state)
+          └── AppRouter (routes)
+
+Error handling:
+  - Each critical route wrapped in <ErrorBoundary>
+  - Prevents blank screens on component errors
+  - Shows error UI with recovery option
+
+
+================================================================================
+11. FRONTEND — ROUTING & NAVIGATION
+================================================================================
+
+Router: React Router v6 (src/router/AppRouter.jsx)
+
+Public routes (no auth required):
+  /              → Landing page
+  /login         → Login page
+  /signup        → Signup page
+
+Protected routes (require auth, wrapped in <ProtectedRoute>):
+  /app           → Redirects to /app/dashboard
+  /app/dashboard → Dashboard page (with ErrorBoundary)
+  /app/transactions → Transactions page (with ErrorBoundary)
+  /app/savings   → Savings goals page (with ErrorBoundary)
+  /app/analytics → Analytics page (with ErrorBoundary)
+  /app/settings  → Settings page (with ErrorBoundary)
+
+Legacy redirects:
+  /dashboard → /app/dashboard (backward compatibility)
+  * (unknown) → / (landing page)
+
+Layout structure for /app/* routes:
+  <Layout> wraps all protected content with:
+  - <Sidebar> (collapsible, left navigation)
+  - <Navbar> (top bar with toggle, user info, notifications)
+  - <Outlet /> (page content)
+
+Sidebar auto-collapse:
+  - On window resize < 860px, sidebar auto-collapses
+  - Stored in localStorage as "sb:collapsed"
+
+Navigation items in Sidebar:
+  - Dashboard (home icon)
+  - Transactions (list icon)
+  - Savings (piggy bank icon)
+  - Analytics (bar chart icon)
+  - Settings (gear icon)
+
+
+================================================================================
+12. FRONTEND — STATE MANAGEMENT
+================================================================================
+
+BudgetContext (src/context/BudgetContext.jsx — 658 lines):
+  Primary state container for the entire application.
+
+  State:
+    budget: { id, user_id, monthly_budget, total_spent, total_saved }
+    expenses: [{ id, category, description, amount, date }]
+    expensesByCategory: [{ name, value }] (aggregated)
+    goals: [{ id, goal_name, target_amount, current_amount, deadline, month, year }]
+    prediction: { predicted_spend, predicted_deviation, confidence,
+                  months_used, prediction_method, loading, error }
+    loading: boolean (global loading state)
+    error: string|null (global error state)
+
+  Methods:
+    fetchDashboard(userId, period?) — fetches budget + expenses + goals
+    fetchExpenses(userId) — fetches all expenses
+    addExpense(data) — creates expense, refreshes dashboard
+    updateExpense(id, data) — updates expense, refreshes
+    deleteExpense(id) — deletes expense, refreshes
+    updateBudget(data) — sets/updates budget, refreshes
+    fetchGoals(userId) — fetches savings goals
+    addGoal(data) — creates goal, refreshes
+    updateGoal(id, data) — updates goal progress
+    updateGoalDetails(id, data) — updates goal metadata
+    deleteGoal(id) — deletes goal, refreshes
+    fetchPrediction(userId) — fetches SGDRegressor prediction
+
+  User resolution:
+    1. Uses passed userId parameter if provided
+    2. Falls back to authUser from useAuth() hook
+    3. Falls back to localStorage.getItem("sb:user")
+
+  Prediction fetching (fetchPrediction):
+    - POST to get-prediction.php with { user_id }
+    - 15-second timeout via AbortController
+    - Stores predicted_spend, deviation, confidence, months_used
+    - Handles errors gracefully (insufficient data, API down)
+    - Prevents duplicate simultaneous calls
+
+UserContext (src/context/UserContext.jsx):
+  Legacy context, largely superseded by useAuth().
+  Provides: user, UpdateUser(), clearUser()
+
+NotificationContext (src/context/NotificationContext.jsx):
+  Toast notification system.
+  Methods: showNotification(message, type?), hideNotification()
+
+FilterContext (src/context/FilterContext.jsx):
+  Filter state for transactions/expense lists.
+
+useAuth hook (src/hooks/useAuth.jsx):
+  Authentication state management.
+  Reads user/token from localStorage.
+  Provides: user, login(), logout(), isAuthenticated
+
+useLocalStorage (src/hooks/useLocalStorage.js):
+  Generic localStorage wrapper.
+  Provides: value, setValue, removeValue
+  Auto-syncs across tabs via storage event.
+
+
+================================================================================
+13. FRONTEND — PAGE IMPLEMENTATIONS
+================================================================================
+
+Landing Page (src/pages/Landing.jsx):
+  - Public homepage for unauthenticated users
+  - Hero section with app description
+  - Feature highlights
+  - Call-to-action buttons (Login, Sign Up)
+  - No API calls
+
+Login Page (src/pages/Login.jsx):
+  - Email + password form
+  - Validates input
+  - POST to /api/login.php
+  - On success: stores user in localStorage ("sb:user")
+  - Navigates to /app/dashboard
+  - Error handling for invalid credentials
+  - Link to signup page
+
+Signup Page (src/pages/Signup.jsx):
+  - Name, email, phone_number, password form
+  - Validates all fields (email format, password length)
+  - POST to /api/signup.php
+  - On success: auto-login, stores user
+  - Navigates to /app/dashboard
+  - Error handling for duplicate email
+  - Link to login page
+
+Settings Page (src/pages/Settings.jsx):
+  - User profile editing (name, email, phone)
+  - Password change form
+  - SMS forwarder configuration
+  - Push notification settings
+  - Account management options
+
+Dashboard Page (src/features/dashboard/Dashboard.jsx — 590 lines):
+  - KPI Cards (4-column grid):
+    1. Monthly Budget (wallet icon, blue accent)
+    2. Total Spent (trending down icon, red/amber accent)
+    3. Remaining Budget (wallet icon, green/red accent)
+    4. Total Saved (piggy bank icon, purple accent)
+  - Expense Breakdown: Pie chart by category (Recharts)
+  - Recent Transactions: Latest 5 expenses with category icons
+  - Savings Goals Preview: Top 3 goals with progress bars
+  - Quick Actions: Set Budget, Add Expense, Add Savings
+  - Period Selector: Week/Month/Year filter
+  - AutoSMSProcessor: Background SMS processing
+  - AlertBanner: Budget threshold warnings
+  - GamificationCard: XP, level, badges display
+  - OnboardingWizard: First-time user flow
+  - ExportButton: Data export functionality
+  - Skeleton loading states
+  - Hover effects on transaction items
+  - Color-coded category icons from CATEGORIES config
+
+Transactions Page (src/features/transactions/Transactions.jsx — 752 lines):
+  - Full expense list with inline editing
+  - Each row: category icon, description, amount, date
+  - Inline edit: click edit → fields become editable
+  - Inline save/cancel with loading states
+  - Delete with confirmation
+  - Search bar: filters by description or category
+  - Sort by date or amount
+  - Category filter dropdown
+  - Add Expense button (opens modal)
+  - "AI Needs Help" banner:
+    - Fetches /api/get-needs-review.php
+    - Shows purchases with category='Other'
+    - Excludes cash withdrawals
+    - CategoryPickerModal for each item
+    - Saves choice via Flask /confirm_category
+    - Shows "Help the AI learn" messaging
+  - Cash Withdrawal banner:
+    - Fetches uncategorized withdrawals
+    - CategoryPickerModal with "What was this cash used for?"
+    - Saves via /api/categorize_cash_withdrawal.php
+  - CategorizationFeedback component:
+    - Toast notification after category confirmation
+    - Shows progress: "4/5 more to auto-learn"
+    - Dismissable
+  - Empty state when no transactions
+  - Loading skeleton rows
+  - Pagination for large expense lists
+
+Savings Page (src/features/savings/Savings.jsx — 474 lines):
+  - Overall stats header:
+    - Total Saved amount
+    - Active Goals count
+    - Average Progress percentage
+  - Goal cards grid (responsive):
+    - Each card: GoalCard component
+    - Progress bar with color coding:
+      - Blue (< 50%): starting
+      - Amber (50-75%): progressing
+      - Green (> 75%): nearly complete
+      - Green + checkmark (100%): completed
+    - Edit and delete buttons on each card
+    - Collapsible design
+  - Create Goal form:
+    - Goal name input
+    - Target amount input
+    - Creates via addGoal()
+  - Add Savings modal:
+    - Opens on "+ Add Savings" button
+    - Shows current progress
+    - Amount input
+    - Updates current_amount via updateGoal()
+    - Success notification
+  - Delete confirmation dialog
+  - Empty state for no goals
+  - Responsive grid layout
+
+Analytics Page (src/features/analytics/Analytics.jsx):
+  - KPI summary cards (4-column):
+    - Monthly Budget
+    - Total Spent (with % used)
+    - Remaining (available/over budget)
+    - Total Saved
+  - Predicted Spend card:
+    - SGDRegressor prediction from BudgetContext
+    - Shows predicted amount vs budget
+    - Progress bar: predicted/budget ratio
+    - Confidence display:
+      - "Model confidence: 81% based on 4 months" (ML)
+      - "Preliminary estimate • 50% confidence" (statistical)
+    - "Estimate" badge for non-ML methods
+    - Error handling: "Not enough data" message
+    - Loading skeleton
+  - Spending by Category (horizontal bar chart):
+    - Recharts BarChart with layout="vertical"
+    - Category-colored bars
+    - Legend with icons and percentages
+    - Total spend per category
+  - Weekly Spending (line chart):
+    - Recharts LineChart
+    - Actual spending per week (solid blue line)
+    - Weekly budget (dashed gray line)
+    - 4-week breakdown
+    - Summary grid: Wk1-Wk4 with over/under indicators
+    - Top border color: red (over budget), green (under)
+  - Period selector support (month/year filter)
+  - Charts update when period changes
+
+
+================================================================================
+14. FRONTEND — COMPONENT LIBRARY
+================================================================================
+
+Core Components:
+  AlertBanner.jsx — Warning/info banner with dismiss button
+    Props: message, type (warning|info|error), onDismiss
+    Used for: budget threshold alerts, system messages
+
+  AutoSMSProcessor.jsx — Background SMS processing
+    Polls for new SMS transactions
+    Sends to Flask /parse for classification
+    Auto-saves via auto-save-transaction.php
+    Creates notifications for new expenses
+
+  BudgetTracker.jsx — Budget progress widget
+    Shows budget bar with spent/remaining
+    Percentage indicator
+    Color-coded progress
+
+  Card.jsx — Generic card wrapper
+    Props: title, children, actions
+    Consistent border, padding, shadow
+
+  CashWithdrawalCategorizer.jsx — ATM withdrawal categorization UI
+    Lists uncategorized withdrawals
+    Category picker for each
+    Saves via categorize_cash_withdrawal.php
+
+  CategorizationFeedback.jsx — AI learning toast notification
+    Shows after user confirms a category
+    Displays progress: "4 more confirmations to auto-learn"
+    5-dot progress indicator
+    Slides in from bottom-right
+    Auto-dismisses after 3 seconds
+
+  EmptyState.jsx — Placeholder for empty data
+    Props: icon, title, description, action
+    Used when lists are empty
+
+  ErrorBoundary.jsx — React error boundary
+    Catches rendering errors
+    Shows error UI with retry button
+    Prevents blank pages
+
+  ExportButton.jsx — Data export
+    Exports expenses/transactions to CSV
+    Triggers browser download
+
+  Financialadvisor.jsx — Rule-based financial Q&A
+    Parses user questions for keywords
+    Matches patterns: "spend", "budget", "forecast", "save"
+    Returns formatted financial advice
+    Uses current budget/expense data for calculations
+
+  GamificationCard.jsx — Gamification display
+    Shows: level, XP progress bar, streak, badges
+    Level calculation: geometric progression (×1.2)
+    Badges: shows earned badges only
+    Challenges: 4 monthly goals with progress
+    Fetches from /api/gamification.php
+
+  GoalCard.jsx + GoalCard.css — Savings goal card
+    Collapsible (click header to expand/collapse)
+    200ms smooth animation
+    Progress bar with gradient fill
+    Color-coded: blue/amber/green
+    Keyboard accessible (Enter/Space)
+    Props: goal, isExpanded, onToggle, onAddSavings, onDelete
+
+  Loading.jsx — Full-page loading overlay
+  LoadingSpinner.jsx — Inline spinner component
+
+  Navbar.jsx — Top navigation bar
+    Sidebar toggle button
+    Page title
+    Notification bell
+    User avatar/name
+    Theme toggle
+
+  NotificationBell.jsx — Bell icon with unread badge
+    Click opens NotificationPanel
+    Fetches unread count from API
+
+  NotificationPanel.jsx — Dropdown notification list
+    Lists recent notifications
+    Mark as read on click
+    Filter: all/unread
+    Links to relevant pages via action_url
+
+  OnboardingWizard.jsx — First-time user setup
+    Multi-step wizard
+    Steps: welcome → set budget → add first expense
+    Skippable
+    Stored in localStorage (don't show again)
+
+  PeriodSelector.jsx — Time period selector
+    Options: This Week, This Month, This Year
+    Dispatches periodChanged custom event
+    Used by Dashboard and Analytics pages
+
+  ProtectedRoute.jsx — Authentication guard
+    Checks localStorage for user
+    Redirects to /login if not authenticated
+    Wraps protected routes
+
+  PushNotificationSettings.jsx — Push notification config
+    Subscribe/unsubscribe from push
+    Shows permission status
+    Saves subscription to API
+
+  SetBudgetModal.jsx — Budget setting dialog
+    Monthly budget input
+    Optional per-category budgets
+    Saves via updateBudget()
+    Validates amount > 0
+
+  SetBudgetModel.jsx — Budget modal variant (duplicate)
+
+  Sidebar.jsx — Left navigation sidebar
+    Collapsible (width toggle)
+    Navigation items with icons
+    Active page highlight
+    Responsive: auto-collapse on mobile
+
+  SMSConfiguration.jsx — SMS forwarder setup
+    Shows webhook URL
+    Setup instructions
+    Test SMS button
+
+  SMSMessageProcessor.jsx — SMS processing UI component
+  SMSTransactionModal.jsx — SMS transaction details
+
+  ThemeToggle.jsx — Dark/light theme switch
+  ToggleButton.jsx — Generic toggle
+
+  WeeklyDigest.jsx — Weekly summary report
+    Aggregates week's spending
+    Category breakdown
+    Comparison to previous week
+
+Chart Components:
+  CustomBarChart.jsx — Recharts bar chart wrapper
+  CustomLegend.jsx — Chart legend with color swatches
+  CustomPieChart.jsx — Recharts pie chart wrapper
+  CustomTooltip.jsx — Custom chart tooltip
+
+Dashboard Components:
+  ExpenseTransactions.jsx — Expense list for dashboard
+  FinanceOverview.jsx — Financial summary widget
+  Last30DaysExpense.jsx — 30-day spending chart
+  RecentTransactions.jsx — Recent expense list widget
+
+Layout Components:
+  AppLayout.jsx — Main app shell
+  AuthLayout.jsx — Auth pages layout
+  DashboardLayout.jsx — Dashboard-specific layout
+  GridSection.jsx — Grid container
+  LayoutRow.jsx — Row with configurable ratios (equal/wide/narrow)
+  PageContainer.jsx — Page wrapper (standard/narrow variants)
+  SideMenu.jsx — Side menu panel
+
+Card Sub-components:
+  CharAvatar.jsx — Character-based avatar (initials)
+  InfoCard.jsx — Information display card
+  TransactionInfoCard.jsx — Transaction detail card
+
+
+================================================================================
+15. FRONTEND — DESIGN SYSTEM
+================================================================================
+
+Defined in src/index.css using CSS custom properties.
+
+Primary Colors:
+  --primary-main:      #0B5FFF (action blue)
+  --primary-lighter:   #EEF4FF (hover bg)
+  --primary-lightest:  #F5F9FF (subtle tint)
+
+Neutral Scale:
+  --neutral-900: #051033 (headlines)
+  --neutral-700: #2B2F36 (body text)
+  --neutral-500: #6B7280 (secondary text)
+  --neutral-300: #D1D5DB (borders)
+  --neutral-100: #F3F4F6 (light bg)
+  --neutral-50:  #F9FAFB (page background)
+
+Semantic Colors:
+  --success:       #10B981
+  --success-light: #D1FAE5
+  --success-dark:  #065F46
+  --warning:       #F59E0B
+  --warning-light: #FEF3C7
+  --danger:        #EF4444
+  --danger-light:  #FEE2E2
+  --danger-dark:   #B91C1C
+
+Backgrounds:
+  --bg-primary:    #FFFFFF (card bg)
+  --bg-secondary:  #F9FAFB (alt bg)
+  --bg-tertiary:   #F3F4F6 (inputs)
+
+Borders:
+  --border-light:  #E5E7EB
+  --border-main:   #D1D5DB
+
+Text:
+  --text-primary:   #051033
+  --text-secondary: #4B5563
+  --text-muted:     #9CA3AF
+  --text-inverse:   #FFFFFF
+
+Shadows:
+  --shadow-xs:  0 1px 2px rgba(0,0,0,0.05)
+  --shadow-sm:  0 2px 4px rgba(0,0,0,0.05)
+  --shadow-md:  0 4px 6px rgba(0,0,0,0.1)
+  --shadow-lg:  0 10px 15px rgba(0,0,0,0.1)
+  --shadow-xl:  0 20px 25px rgba(0,0,0,0.1)
+
+Border Radius:
+  --radius-sm:   4px
+  --radius-md:   8px
+  --radius-lg:   12px
+  --radius-xl:   16px
+  --radius-full: 999px
+
+Spacing:
+  --s-xxs: 4px
+  --s-xs:  8px
+  --s-sm:  12px
+  --s-md:  16px
+  --s-lg:  24px
+  --s-xl:  32px
+  --s-2xl: 48px
+
+Typography:
+  Font stack: -apple-system, BlinkMacSystemFont, "Segoe UI",
+              Roboto, "Helvetica Neue", Arial, sans-serif
+  Page titles:    26-28px / 700-800 weight
+  Section titles: 18-20px / 700 weight
+  Subheadings:    14-16px / 600 weight
+  Body text:      13-14px / 500 weight
+  Secondary:      12-13px / 500 weight
+  Captions:       11-12px / 400 weight
+
+Button Classes (in index.css):
+  .btn-primary   — Blue bg, white text
+  .btn-secondary — Gray bg
+  .btn-success   — Green bg
+  .btn-danger    — Red bg
+  .btn-warning   — Orange bg
+  .btn-ghost     — Transparent, text only
+  .btn-outline   — Bordered
+  .btn-small     — 8px padding
+  .btn           — 11px padding
+  .btn-large     — 14px padding
+
+Skeleton Loading:
+  .skeleton       — Animated shimmer effect
+  .skeleton-text  — Text-width placeholder
+  .skeleton-amount — Amount-width placeholder
+  .skeleton-card  — Full card placeholder
+
+
+================================================================================
+16. FEATURE: SMS AUTO-CATEGORIZATION PIPELINE
+================================================================================
+
+Trigger: SMS received on Android phone
+1. SMS Forwarder app detects new SMS
+2. App POSTs to webhook: { messages: [{ address, body, date }] }
+3. Webhook hits: /api/sms-ingest.php
+4. PHP authenticates via ingest_secret
+5. PHP saves raw SMS to sms_raw_ingest table (with hash dedup)
+6. PHP calls Flask /parse endpoint with SMS text
+7. Flask classify_sms() runs:
+   a. detect_bank() — identifies bank from patterns
+   b. extract_fields() — regex extracts amount, store, balance
+   c. classify_sms() — 3-layer category assignment
+8. Flask returns: { category, confidence, needs_manual_category,
+                     bank, amount, store, transaction_type }
+9. PHP calls /api/auto-save-transaction.php
+10. PHP saves to expenses table
+11. PHP creates notification (with category emoji)
+12. Dashboard auto-refreshes, showing new expense
+
+If needs_manual_category=true:
+  - Expense saved with category='Other'
+  - Appears in "AI Needs Help" banner on Transactions page
+  - User manually selects category
+  - Selection sent to Flask /confirm_category
+  - Logged in feedback_log.csv
+  - After 5 confirmations: store added to store_memory
+  - Future transactions from same store auto-categorized
+
+Supported banks:
+  - FNB (First National Bank) — pattern: "FNB:-)"
+  - Standard Lesotho Bank — pattern: "has been reserved from acc"
+  - M-Pesa — pattern: "transact id" / "M-Pesa"
+  - Nedbank — pattern: "Nedbank confirms"
+  - Ecocash — pattern: "ecocash"
+
+
+================================================================================
+17. FEATURE: SPENDING PREDICTION (SGDRegressor)
+================================================================================
+
+How it works:
+  - Predicts end-of-month total spending
+  - Based on user's historical budget-vs-actual patterns
+  - Uses 4 months of past spending as features
+  - Pre-trained SGDRegressor model predicts deviation from budget
+
+Progressive fallback for new users:
+  - 0 months: predicts = budget (assumes full budget spent)
+  - 1 month: predicts = that month's actual
+  - 2 months: predicts = average of both
+  - 3 months: predicts = average + 25% trend weight
+  - 4+ months: full ML prediction
+
+Where displayed:
+  - Analytics page: "Predicted Spend" card
+  - Shows predicted amount, deviation from budget
+  - Progress bar: predicted vs budget ratio
+  - Confidence badge for non-ML methods
+  - Method label shown (ml_model, trend_adjusted, etc.)
+
+Model details:
+  - Algorithm: SGDRegressor (squared_loss, SGD-based linear regression)
+  - Features: 4 monthly deviations from budget
+  - Target: next month's deviation from budget
+  - Preprocessing: StandardScaler (zero mean, unit variance)
+  - Training data: 500+ user records
+  - R²: ~0.79-0.81 (loaded from model_metrics.json)
+  - MAE: ~M224.56 (average prediction error)
+
+Online learning:
+  - Model updates monthly via partial_fit()
+  - Script: backend/ml/update_model_month_end.php
+  - Collects all users' completed month data
+  - Incrementally updates model weights
+  - Recalculates R² after each update
+  - R² fluctuates ±2-3% normally
+
+Limitations:
+  - Requires 4 months for ML prediction
+  - Cold users get statistical estimates only
+  - Model assumes spending patterns are somewhat consistent
+  - Seasonal changes (holidays, paydays) affect accuracy
+
+
+================================================================================
+18. FEATURE: GAMIFICATION SYSTEM
+================================================================================
+
+Backend: /api/gamification.php (real-time calculation)
+
+XP Calculation:
+  - 10 XP per transaction added
+  - 5 XP per categorized expense (not 'Other')
+  - 100 XP per completed savings goal
+  - 50 XP per month under budget
+  - 5 XP per streak day
+  - 25 XP bonus if total saved >= M500
+  - 50 XP bonus if total saved >= M2,000
+
+Level System:
+  - Level 1: 0 XP
+  - Level 2: 100 XP needed
+  - Level 3: 120 XP needed (100 × 1.2)
+  - Level 4: 144 XP needed (120 × 1.2)
+  - Level N: previous × 1.2
+  - Progress bar shows XP towards next level
+
+Streak Calculation:
+  - Counts consecutive days with at least 1 expense
+  - Works backwards from today
+  - Gaps break the streak
+
+12 Badges (earned only, locked hidden):
+  🎯 First Step        — 1+ transaction
+  🔥 Week Warrior      — 7-day streak
+  🛡️ Budget Keeper     — 1 month under budget
+  🐷 Saver             — M500+ total saved
+  🏆 Goal Getter       — 1 completed goal
+  📂 Organizer         — 20 categorized expenses
+  📱 SMS Pro           — 10 SMS auto-imported
+  ⭐ Rising Star       — Reach Level 5
+  👑 Budget Master     — 3 months under budget
+  💰 Big Saver         — M2,000+ total saved
+  📅 Consistent        — 30 total transactions
+  🎯 Goal Crusher      — 3 completed goals
+
+4 Monthly Challenges:
+  1. Track 10 transactions (50 XP)
+  2. Stay under budget (75 XP)
+  3. Categorize everything (30 XP)
+  4. 5-day tracking streak (40 XP)
+
+Each challenge shows:
+  - Progress percentage bar
+  - XP reward
+  - Complete/incomplete status
+  - Dynamic descriptions based on user's budget
+
+Frontend: GamificationCard.jsx on Dashboard
+  - Compact card showing level, XP bar, badges, challenge
+
+
+================================================================================
+19. FEATURE: NOTIFICATION SYSTEM
+================================================================================
+
+Database: notifications table
+  Types: sms, expense, income, budget, savings, system
+  Fields: title, message, action_url, reference_id, is_read
+
+Creation:
+  - auto-save-transaction.php: creates expense notification
+    with category emoji (e.g., "🛒 Mr Price → Shopping, M570.00")
+  - Budget alerts: fires at 50%, 75%, 90%, 100% thresholds
+  - Savings goal completion
+  - Income recording
+  - System announcements
+
+Retrieval:
+  - GET /api/notifications.php?user_id=X&limit=20&filter=all
+  - Returns paginated list with unread count
+  - Filter options: all, unread, by type
+
+UI Components:
+  - NotificationBell: shows unread count badge
+  - NotificationPanel: dropdown list of notifications
+  - Click marks as read
+  - action_url links to relevant page
+
+NotificationManager.php:
+  - Helper class for notification operations
+  - getUnreadCount() method
+  - Used by multiple API endpoints
+
+
+================================================================================
+20. FEATURE: SAVINGS GOALS
+================================================================================
+
+Database: savings_goals table
+  Fields: user_id, month, year, goal_name, target_amount,
+          current_amount, deadline
+
+CRUD Operations:
+  - Create: name + target amount → add-goal.php
+  - Read: get-goals.php returns all goals for period
+  - Update progress: update-goal.php updates current_amount
+  - Update details: update-goal.php updates name/target/deadline
+  - Delete: delete-goal.php removes goal
+
+Frontend:
+  - Savings page: grid of GoalCard components
+  - Each card shows: name, progress bar, current/target
+  - Color-coded progress: blue (<50%), amber (50-75%), green (>75%)
+  - Completed goals show checkmark
+  - "+ Add Savings" button opens contribution modal
+  - Edit/delete buttons on each card
+  - Collapsible card design
+
+Overall Stats:
+  - Total saved across all goals
+  - Active goals count
+  - Average progress percentage
+
+Dashboard Preview:
+  - Top 3 goals shown on dashboard
+  - Mini progress bars
+  - Quick "+ Add Savings" button
+
+
+================================================================================
+21. FEATURE: BUDGET TRACKING & ALERTS
+================================================================================
+
+Database: user_budgets + budget_categories tables
+
+Monthly Budget:
+  - Set via SetBudgetModal on Dashboard
+  - Stored in user_budgets (month, year, monthly_budget)
+  - total_spent tracked automatically
+  - total_saved from savings goals
+
+Per-Category Budgets:
+  - Optional category allocations
+  - Stored in budget_categories
+  - Shows spent vs allocated per category
+
+Budget Calculation:
+  - Remaining = monthly_budget - total_spent
+  - Percentage used = (total_spent / monthly_budget) × 100
+  - Updated on every expense add/edit/delete
+
+Alert Thresholds:
+  - 50% of budget: gentle reminder
+  - 75% of budget: caution warning
+  - 90% of budget: serious alert
+  - 100% of budget: critical warning
+
+Alert Display:
+  - AlertBanner component on Dashboard
+  - Color-coded by severity
+  - Dismissible
+  - Shows % used and remaining amount
+
+Budget Context Sync:
+  - BudgetContext fetches fresh data after every mutation
+  - Dashboard auto-refreshes
+  - Analytics page updates predicted spend
+
+
+================================================================================
+22. FEATURE: TRANSACTION MANAGEMENT
+================================================================================
+
+Expense CRUD:
+  - Add: AddExpenseModal with category, amount, date, description
+  - Edit: inline editing on Transactions page
+  - Delete: confirmation dialog, recalculates totals
+  - View: paginated list with search, filter, sort
+
+Transaction List:
+  - Category icon + color for each expense
+  - Description, amount, date displayed
+  - Hover highlights with category color border
+  - Loading skeleton rows during fetch
+
+Search & Filter:
+  - Search by description text
+  - Filter by category dropdown
+  - Sort by date (newest/oldest) or amount (high/low)
+
+Inline Editing:
+  - Click edit → description/category become editable
+  - Save commits via update-expense.php
+  - Cancel reverts changes
+  - Loading state during save
+
+Empty State:
+  - Placeholder with icon and "Add your first expense" message
+  - Link to add expense button
+
+
+================================================================================
+23. FEATURE: ANALYTICS DASHBOARD
+================================================================================
+
+Analytics Page (src/features/analytics/Analytics.jsx):
+
+KPI Row:
+  - Monthly Budget (blue accent)
+  - Total Spent (red/amber based on % used)
+  - Remaining (green if available, red if over)
+  - Total Saved (purple accent)
+
+Predicted Spend Card:
+  - SGDRegressor prediction from BudgetContext
+  - Predicted amount vs monthly budget
+  - Deviation indicator (+M234.50 or -M150.00)
+  - Progress bar: predicted/budget percentage
+  - Confidence text:
+    - "Model confidence: 81% based on 4 months" (ML)
+    - "Preliminary estimate • 50% confidence • 2 months" (statistical)
+  - "Estimate" badge for non-ML predictions
+  - Error state: "Not enough data" with icon
+
+Spending by Category (Bar Chart):
+  - Horizontal bar chart (Recharts BarChart)
+  - Category-colored bars
+  - Sorted by spend amount
+  - Legend below: icon + name + percentage + amount
+  - 8 standard categories shown
+
+Weekly Spending (Line Chart):
+  - 4-week breakdown (Wk1-Wk4)
+  - Solid blue line: actual spending
+  - Dashed gray line: weekly budget
+  - Tooltip on hover shows amounts
+  - Summary grid below:
+    - Each week: amount with colored top border
+    - Red if over budget, green if under
+  - Legend: Spent vs Budget
+
+Standard Categories (always shown):
+  Food, Groceries, Transport, Entertainment,
+  Health, Utilities, Shopping, Other
+
+Category Colors & Icons:
+  Food:          #EF4444 (☕ Coffee)
+  Groceries:     #F59E0B (🛒 ShoppingCart)
+  Transport:     #3B82F6 (🚌 Bus)
+  Entertainment: #8B5CF6 (⚡ Zap)
+  Health:        #10B981 (💚 Heart)
+  Utilities:     #FBBF24 (⚡ Zap)
+  Shopping:      #EC4899 (🛍️ ShoppingBag)
+  Other:         #64748B (❓ HelpCircle)
+
+Period Support:
+  - Listens for periodChanged custom event
+  - Updates month/year filter
+  - Re-fetches dashboard data
+  - Charts update with new period data
+
+
+================================================================================
+24. FEATURE: AUTHENTICATION & USER MANAGEMENT
+================================================================================
+
+User Registration:
+  POST /api/signup.php
+  Input: { name, email, password, phone_number }
+  Process:
+  1. Validates email format (not empty, valid structure)
+  2. Validates password (min length, not empty)
+  3. Checks for duplicate email
+  4. Generates unique ingest_secret (for SMS webhook auth)
+  5. Hashes password
+  6. Inserts into users table
+  7. Returns user_id and token
+  Frontend: Signup.jsx validates, submits, stores user in localStorage
+
+User Login:
+  POST /api/login.php
+  Input: { email, password }
+  Process:
+  1. Finds user by email
+  2. Verifies password hash
+  3. Returns user object
+  Frontend: Login.jsx submits, stores user, redirects to dashboard
+
+User Session:
+  - Stored in localStorage: "sb:user" (JSON)
+  - No token-based auth (simplified for local deployment)
+  - ProtectedRoute checks for user in localStorage
+  - useAuth hook reads from localStorage
+
+User Profile:
+  GET /api/user.php?user_id=X
+  POST /api/update-user.php
+  POST /api/change-password.php
+
+Password Change:
+  - Requires old password verification
+  - Hashes new password
+  - Updates in database
+
+Logout:
+  - Clears localStorage ("sb:user", "sb:token")
+  - Redirects to /login
+  - Clears all context state
+
+Protected Routes:
+  - <ProtectedRoute> wrapper in AppRouter
+  - Checks localStorage for user
+  - Redirects to /login if not found
+  - All /app/* routes are protected
+
+
+================================================================================
+25. FEATURE: ONBOARDING WIZARD
+================================================================================
+
+Component: OnboardingWizard.jsx
+Hook: useOnboarding.js
+
+Multi-step wizard for first-time users:
+  Step 1: Welcome — explains app features
+  Step 2: Set Budget — prompts to set monthly budget
+  Step 3: Add First Expense — guides through expense entry
+
+Storage:
+  - Tracks completion in localStorage
+  - "Don't show again" option
+  - Skips on subsequent visits
+
+Design:
+  - Modal overlay
+  - Step indicator
+  - Next/Back/Skip buttons
+  - Friendly illustrations and text
+
+Integration:
+  - Rendered on Dashboard page
+  - Only shows for new users
+  - Dismissable at any step
+
+
+================================================================================
+26. FEATURE: AUTO SMS PROCESSOR
+================================================================================
+
+Component: AutoSMSProcessor.jsx
+
+Background processor that:
+  1. Polls for new raw SMS messages
+  2. Sends each to Flask /parse for classification
+  3. Receives category, confidence, transaction details
+  4. Saves via auto-save-transaction.php
+  5. Creates notification for each new expense
+  6. Updates dashboard automatically
+
+Deduplication:
+  - Uses sms_hash (SHA-256 of SMS text + sender + timestamp)
+  - Duplicate SMS are rejected at database level
+  - is_duplicate flag set on duplicates
+
+Error handling:
+  - Failed classifications logged
+  - Network errors retried
+  - Flask health check before processing
+
+
+================================================================================
+27. FEATURE: ALERT BANNER SYSTEM
+================================================================================
+
+Component: AlertBanner.jsx
+
+Displays contextual warnings:
+  - Budget threshold alerts (50%, 75%, 90%, 100%)
+  - System status messages
+  - Error notifications
+
+Props:
+  - message: text to display
+  - type: warning | info | error
+  - onDismiss: callback for dismiss button
+  - icon: auto-selected based on type
+
+Design:
+  - Full-width banner
+  - Color-coded background
+  - Icon on left
+  - Dismiss button on right
+  - Smooth entrance animation
+
+
+================================================================================
+28. FEATURE: CATEGORIZATION FEEDBACK (ACTIVE LEARNING)
+================================================================================
+
+Component: CategorizationFeedback.jsx
+
+Appears when user confirms a category for an AI-uncertain transaction:
+  - Toast notification slides in from bottom-right
+  - Shows progress: "4 more confirmations to auto-learn"
+  - 5-dot progress indicator (filled/unfilled)
+  - After 5th confirmation: "AI learned — will auto-categorize next time"
+  - Auto-dismisses after 3 seconds
+
+Backend logic:
+  - Each confirmation appended to feedback_log.csv
+  - Store reaches MIN_CONFIRMATIONS (5) → added to store_memory
+  - Store memory auto-categorizes future transactions
+  - SMS model retrains every RETRAIN_EVERY (5) confirmations
+
+
+================================================================================
+29. FEATURE: CASH WITHDRAWAL HANDLING
+================================================================================
+
+Detection:
+  - Transaction type: "Cash Withdrawal", "ATM", "Withdrawal"
+  - Keywords in SMS: "withdraw", "cashout", "atm", "pay2wallet"
+
+Exclusion from ML:
+  - Withdrawals NEVER train the SMS classifier
+  - Classified as 'Other' category
+  - Reason: cash destination is unknown
+  - A withdrawal labelled 'Lekau Store' doesn't mean spending was at Lekau
+
+User Categorization:
+  - Cash withdrawals appear in separate banner on Transactions page
+  - "What was this cash used for?" category picker
+  - User selects actual spending category
+  - Saved via categorize_cash_withdrawal.php
+  - Does NOT affect classifier training
+
+
+================================================================================
+30. FEATURE: EXPORT & PDF REPORTS
+================================================================================
+
+ExportButton.jsx:
+  - Exports expenses to CSV format
+  - Includes: date, category, description, amount
+  - Triggers browser download
+  - Respects current period filter
+
+generate-pdf-report.php:
+  - Generates comprehensive PDF report
+  - Includes: budget summary, expense breakdown,
+    category analysis, savings progress, predictions
+  - Downloadable from the app
+
+
+================================================================================
+31. FEATURE: WEEKLY DIGEST
+================================================================================
+
+Component: WeeklyDigest.jsx
+
+Aggregates weekly spending data:
+  - Total spent this week
+  - Category breakdown
+  - Comparison to previous week
+  - Budget status (over/under weekly allocation)
+
+Can be triggered manually or scheduled.
+
+
+================================================================================
+32. FEATURE: PUSH NOTIFICATIONS
+================================================================================
+
+Service Worker: public/sw.js
+  - Handles push notification reception
+  - Shows system notifications
+
+PushNotificationSettings.jsx:
+  - Subscribe/unsubscribe toggle
+  - Permission status display
+  - Saves subscription to /api/save-push-subscription.php
+
+Hooks:
+  - useNotifications.js: manages notification state
+  - usePushNotifications.js: handles subscription flow
+
+Backend:
+  - save-push-subscription.php stores endpoint + keys
+  - Notifications can be pushed via web push API
+
+
+================================================================================
+33. FEATURE: AI FINANCIAL ADVISOR
+================================================================================
+
+Component: Financialadvisor.jsx
+Endpoint: /api/ai-advisor.php
+
+Rule-based Q&A system:
+  - Parses user questions for keywords
+  - Matches patterns: "spend", "budget", "forecast",
+    "save", "prediction", "how much"
+  - Returns formatted financial advice
+
+Example responses:
+  - Month-end forecast: "At M230/day you will spend about
+    M6,900 — M1,900 over your M5,000 budget"
+  - Daily allowance calculation
+  - Biggest category identification
+  - Actionable recommendations
+
+Uses real budget and expense data from BudgetContext.
+
+
+================================================================================
+34. CONFIGURATION FILES
+================================================================================
+
+package.json:
+  - Name: project-smart-budget
+  - Version: 1.0.0
+  - Type: module (ESM)
+  - Scripts: dev, start, build, preview
+  - Dependencies: React 18, Router, Recharts, Framer Motion,
+    Lucide React, FontAwesome
+  - DevDependencies: Vite 7, ESLint 9, Prettier 3, PostCSS
+
+vite.config.js:
+  - React plugin enabled
+  - Server: host 0.0.0.0, port 5173, strictPort false
+  - Proxy: /smart_budget/backend → http://localhost:8080
+  - Allows network access (--host flag)
+
+backend/config.php:
+  - Database: host=localhost, db=smart_budget, user=root, pass=root1234
+  - CORS: Allow-Origin: *
+  - Methods: GET, POST, PUT, DELETE, OPTIONS
+  - Charset: utf8mb4
+
+src/config/api.js:
+  - API_BASE: dynamically detected (dev vs production)
+    - Dev (port 5173-5175): {hostname}:8080/smart_budget/backend/api
+    - Production: window.location.host/smart_budget/backend/api
+  - ML_API_BASE: always http://localhost:5000
+  - Exports: parseSMS(), parseSMSBulk(), confirmSMSCategory(),
+    checkMLHealth()
+
+.eslintrc / eslint.config.js:
+  - ESLint 9 flat config
+  - Prettier integration
+  - React-specific rules
+
+.gitignore:
+  - node_modules/
+  - dist/
+  - .env
+  - *.pkl (ML model files — though they exist in repo)
+  - feedback_log.csv
+  - sms_log.txt
+
+
+================================================================================
+35. BUILD & DEPLOYMENT
+================================================================================
+
+Development:
+  1. Start XAMPP (Apache + MySQL)
+  2. Create database: CREATE DATABASE smart_budget
+  3. Import schema: source backend/schema.sql
+  4. Install deps: npm install
+  5. Start dev server: npm run dev
+  6. Open: http://localhost:5173
+  7. Start Flask: cd backend && python app.py (port 5000)
+
+Production Build:
+  1. npm run build
+  2. Output: dist/ folder
+  3. Deploy dist/ to any static host
+  4. Configure Apache VirtualHost for SPA routing
+  5. Set VITE_API_BASE and VITE_ML_API_BASE env vars
+
+Apache VirtualHost (production):
+  <VirtualHost *:80>
+      DocumentRoot "path/to/smart_budget/dist"
+      ServerName yourdomain.com
+      <Directory "path/to/smart_budget/dist">
+          AllowOverride All
+          Require all granted
+      </Directory>
+      RewriteEngine On
+      RewriteRule ^index\.html$ - [L]
+      RewriteCond %{REQUEST_FILENAME} !-f
+      RewriteRule . /index.html [L]
+  </VirtualHost>
+
+
+================================================================================
+36. APACHE & NETWORK CONFIGURATION
+================================================================================
+
+Local Development:
+  - Apache on port 8080 (XAMPP default for SmartSpend)
+  - Vite dev server on port 5173
+  - Both accessible via localhost
+
+Network Access (same WiFi):
+  1. Edit C:\xampp\apache\conf\httpd.conf
+  2. Add: Listen {YOUR_IP}:80
+  3. Change <Directory /> to Require all granted
+  4. Restart Apache
+  5. Add Windows Firewall rules for ports 80 and 5173
+  6. Access from phone/other devices:
+     - http://YOUR_IP:8080/smart_budget/
+     - http://YOUR_IP:5173/
+
+Firewall Rules (PowerShell as Administrator):
+  netsh advfirewall firewall add rule name="XAMPP-HTTP" dir=in
+    action=allow protocol=tcp localport=80
+  netsh advfirewall firewall add rule name="Vite-Dev" dir=in
+    action=allow protocol=tcp localport=5173
+
+
+================================================================================
+37. DEBUG & TEST SCRIPTS
+================================================================================
+
+PowerShell Test Scripts (root level):
+  test_ml_accuracy.ps1    — Tests SMS classifier accuracy
+  test-api.ps1            — Tests PHP API endpoints
+  test-end-to-end.ps1     — Full flow test
+  test-sms-api.ps1        — SMS-specific API tests
+
+PHP Debug Scripts (root level):
+  add-duplicate-prevention.php  — Sets up duplicate prevention
+  check-duplicates.php          — Finds duplicate entries
+  check-notifications-schema.php — Checks notifications table
+  check-sms-table.php           — Checks SMS tables
+  cleanup-duplicates.php        — Removes duplicates
+  debug-database.php            — Database connection test
+  debug-sms-direct.php          — Direct SMS debugging
+  debug-sms-flow.php            — Full SMS flow debugging
+  debug-sms-notifications.php   — SMS notification debugging
+  test-complete-flow.php        — Complete user flow test
+  test-notification-fix.php     — Notification fix verification
+  test-signup-direct.php        — Direct signup testing
+  test-sms-direct.php           — Direct SMS testing
+  test-webhook-url.php          — Webhook URL validation
+  test-webhook.php              — Webhook endpoint test
+
+PHP Debug Scripts (backend/):
+  check_db.php                  — Database connection check
+  check-create-user.php         — User creation check
+  check-users-schema.php        — Users schema check
+  insert-dummy-sms.php          — Inserts test SMS data
+  insert-test-sms.php           — Inserts test SMS
+  run-migrations.php            — Runs pending migrations
+  Sms_receiver.php              — SMS receiver
+  test_login_debug.php          — Login debugging
+  test-sms-ingest.php           — SMS ingestion test
+  verify-sms.php                — SMS data verification
+
+Python Debug Scripts (backend/):
+  debug_sms.py                  — SMS debugging
+  investigate_user42.py         — Specific user investigation
+  simple_import_test.py         — Import testing
+  test_complete_flow.py         — Complete flow test
+  test_db_connection.py         — Database connection test
+  test_diagnostic.py            — Diagnostic tests
+  test_file_output.py           — File output testing
+  test_imports.py               — Python import testing
+  test_minimal.py               — Minimal test case
+  test_prescription.py          — Prescription test
+
+HTML Test Pages (public/):
+  sms-simulator.html            — SMS simulation interface
+  sms-test-simple.html          — Simple SMS test page
+  test-api.html                 — API test interface
+  view-sms-logs.html            — SMS log viewer
+
+
+================================================================================
+38. DATA FLOW DIAGRAMS
+================================================================================
+
+Expense Recording Flow:
+  User → AddExpenseModal → BudgetContext.addExpense()
+    → POST /api/add-expense.php → MySQL INSERT
+    → BudgetContext.fetchDashboard() (refresh)
+    → Dashboard re-renders with new data
+
+Budget Setting Flow:
+  User → SetBudgetModal → BudgetContext.updateBudget()
+    → POST /api/update-budget.php → MySQL INSERT/UPDATE
+    → BudgetContext.fetchDashboard() (refresh)
+    → Dashboard + Analytics update
+
+Prediction Flow:
+  Analytics page mounts → useEffect triggers
+    → BudgetContext.fetchPrediction(user_id)
+    → POST /api/get-prediction.php → MySQL queries
+    → (If 4+ months) → cURL to predict.php
+    → predict.php → Python subprocess → run_prediction.py
+    → Python loads budget_model.pkl + scaler.pkl
+    → Returns predicted_spend → PHP → Frontend
+    → Analytics page renders Predicted Spend card
+
+SMS Auto-Categorization Flow:
+  Bank SMS → Phone → SMS Forwarder App
+    → POST webhook → /api/sms-ingest.php
+    → Save raw SMS → MySQL (sms_raw_ingest)
+    → cURL to Flask /parse (port 5000)
+    → classify_sms() → 3-layer classification
+    → Returns category, confidence, needs_manual
+    → POST /api/auto-save-transaction.php
+    → Save expense → MySQL (expenses)
+    → Create notification → MySQL (notifications)
+    → Dashboard auto-refreshes
+
+Active Learning Flow:
+  User sees "AI Needs Help" banner
+    → Clicks transaction → CategoryPickerModal
+    → Selects category → confirmSMSCategory()
+    → POST Flask /confirm_category
+    → Append to feedback_log.csv
+    → If 5+ confirmations → add to store_memory
+    → Next SMS from same store → auto-categorized (Layer 1)
+
+
+================================================================================
+39. SECURITY CONSIDERATIONS
+================================================================================
+
+Current Implementation:
+  - Passwords hashed before storage (PHP password_hash)
+  - ingest_secret: unique per user for webhook authentication
+  - SMS hash (SHA-256) prevents duplicate processing
+  - CORS headers set to Allow-Origin: * (development mode)
+  - No CSRF tokens (localStorage-based auth)
+  - No rate limiting on API endpoints
+  - SQL parameterized queries (mysqli prepared statements)
+  - Foreign key constraints maintain referential integrity
+
+Known Gaps:
+  - No HTTPS in local deployment
+  - CORS Allow-Origin: * (should be restricted in production)
+  - No API rate limiting
+  - No input sanitization on all endpoints
+  - localStorage tokens accessible via XSS
+  - No 2FA support
+
+
+================================================================================
+40. KNOWN LIMITATIONS
+================================================================================
+
+Infrastructure:
+  - Local XAMPP server only (not cloud-hosted)
+  - Requires same WiFi network for mobile access
+  - SMS Forwarder app is Android-only (no iOS support)
+  - Flask service must be running separately
+
+Prediction:
+  - SGDRegressor requires 4 months for ML prediction
+  - Statistical fallbacks are estimates, not ML
+  - Model assumes somewhat consistent spending patterns
+  - Seasonal variations affect accuracy
+
+SMS Processing:
+  - Supports only 4-5 banks (FNB, SLB, M-Pesa, Nedbank, Ecocash)
+  - Requires physical SMS forwarding setup
+  - Bank SMS format changes may break regex patterns
+  - Store memory lost on Flask restart (in-memory only)
+
+General:
+  - No offline mode (PWA not implemented)
+  - No multi-user/household budgeting
+  - No recurring transaction detection
+  - Duplicate component files exist (SetBudgetModal/Model)
+  - Root-level legacy components not cleaned up
+  - Some API endpoints have duplicate variants
+
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+File: COMPLETE_IMPLEMENTATION.txt
+Generated: April 2026
+Project: SmartSpend Personal Finance Manager
+Lines: ~2400+ lines of comprehensive documentation
+================================================================================

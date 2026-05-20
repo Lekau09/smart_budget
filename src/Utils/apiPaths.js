@@ -1,0 +1,35 @@
+export const API_PATHS = {
+  LOGIN: "/smart_budget/backend/api/login.php",
+  SIGNUP: "/smart_budget/backend/api/signup.php",
+  USER: "/smart_budget/backend/api/user.php",
+  UPDATE_USER: "/smart_budget/backend/api/update-user.php",
+  CHANGE_PASSWORD: "/smart_budget/backend/api/change-password.php",
+  ADD_EXPENSE: "/smart_budget/backend/api/add-expense.php",
+  UPDATE_EXPENSE: "/smart_budget/backend/api/update-expense.php",
+  DELETE_EXPENSE: "/smart_budget/backend/api/delete-expense.php",
+  GET_EXPENSES: "/smart_budget/backend/api/get-expenses.php",
+  ADD_GOAL: "/smart_budget/backend/api/add-goal.php",
+  UPDATE_GOAL: "/smart_budget/backend/api/update-goal.php",
+  DELETE_GOAL: "/smart_budget/backend/api/delete-goal.php",
+  GET_GOALS: "/smart_budget/backend/api/get-goals.php",
+  GET_DASHBOARD: "/smart_budget/backend/api/get-dashboard.php",
+  UPDATE_BUDGET: "/smart_budget/backend/api/update-budget.php",
+  GET_PREDICTION: "/smart_budget/backend/api/get-prediction.php",
+  GET_PRESCRIPTION: "/smart_budget/backend/api/get-prescription.php",
+  SMS_INGEST: "/smart_budget/backend/api/sms-ingest.php",
+  SMS_AUDIT_LOG: "/smart_budget/backend/api/sms-audit-log.php",
+  GET_SMS_MESSAGES: "/smart_budget/backend/api/get-sms-messages.php",
+  EXTRACT_SMS_TRANSACTION:
+    "/smart_budget/backend/api/extract-sms-transaction.php",
+  SAVE_SMS_TRANSACTION: "/smart_budget/backend/api/save-sms-transaction.php",
+  CATEGORIZE_CASH_WITHDRAWAL:
+    "/smart_budget/backend/api/categorize_cash_withdrawal.php",
+  GET_UNCATEGORIZED_WITHDRAWALS:
+    "/smart_budget/backend/api/get_uncategorized_withdrawals.php",
+  NOTIFICATIONS: "/smart_budget/backend/api/notifications.php",
+  NOTIFICATIONS_UNREAD_COUNT:
+    "/smart_budget/backend/api/notifications-unread-count.php",
+  NOTIFICATION_READ: "/smart_budget/backend/api/notification-read.php",
+  SETUP_DATABASE: "/smart_budget/backend/api/setup-database.php",
+  TEST: "/smart_budget/backend/api/test.php",
+};

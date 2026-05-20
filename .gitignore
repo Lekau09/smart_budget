@@ -1,0 +1,58 @@
+# =============================================================================
+#  SmartSpend — .gitignore
+# =============================================================================
+
+# ── Node / Frontend ───────────────────────────────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Python ────────────────────────────────────────────────────────────────────
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.Python
+
+# ── ML artefacts (large files — commit .pkl only if small) ────────────────────
+backend/sms_dataset_v2.csv
+backend/feedback_log.csv
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/
+*.log
+sms_extraction.log
+sms_system.log
+backend/logs/
+backend/sms_log.txt
+
+# ── Environment / secrets ─────────────────────────────────────────────────────
+.env
+backend/.env
+# keep the example so new devs know what to fill in:
+!backend/.env.example
+
+# ── PHP ───────────────────────────────────────────────────────────────────────
+*.cache
+
+# ── Editor & OS ───────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ── Cloudflare tunnel binary (large) ─────────────────────────────────────────
+cloudflared.exe.exe

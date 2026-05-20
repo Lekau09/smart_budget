@@ -1,0 +1,17 @@
+{
+  "r2_score": 0.809,
+  "mae": 224.56,
+  "rmse": 343.1,
+  "mape": 119.28,
+  "test_samples": 500,
+  "evaluated_at": "2026-04-13T15:25:01.070420",
+  "model_type": "SGDRegressor",
+  "feature_count": 4,
+  "features": [
+    "month1_deviation",
+    "month2_deviation",
+    "month3_deviation",
+    "month4_deviation"
+  ],
+  "dataset": "Synthetic training data (500 households, 5 months each, generated via generate_dataset.py)"
+}

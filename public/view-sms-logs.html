@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS Logs Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #4ec9b0;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #404040;
+            padding-bottom: 10px;
+        }
+        
+        .tab-button {
+            padding: 8px 16px;
+            background: #2d2d30;
+            border: 1px solid #404040;
+            color: #d4d4d4;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+            transition: all 0.3s;
+        }
+        
+        .tab-button.active {
+            background: #007acc;
+            color: #fff;
+            border-color: #007acc;
+        }
+        
+        .tab-button:hover {
+            background: #3e3e42;
+        }
+        
+        .log-container {
+            display: none;
+            background: #1e1e1e;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .log-container.active {
+            display: block;
+        }
+        
+        .log-entry {
+            background: #252526;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid #007acc;
+            border-radius: 2px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        
+        .log-entry.ingest {
+            border-left-color: #4ec9b0;
+        }
+        
+        .log-entry.extraction {
+            border-left-color: #ce9178;
+        }
+        
+        .log-entry.transaction {
+            border-left-color: #6a9955;
+        }
+        
+        .timestamp {
+            color: #858585;
+            font-size: 11px;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #005a9e;
+        }
+        
+        .info-box {
+            background: #252526;
+            border: 1px solid #404040;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            color: #ce9178;
+            font-size: 13px;
+        }
+        
+        .empty-message {
+            color: #858585;
+            text-align: center;
+            padding: 40px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 SMS Processing Logs</h1>
+        
+        <div class="info-box">
+            🔍 View log files from the SMS processing pipeline:<br>
+            ✅ Ingest Logs: Raw SMS received from webhook<br>
+            🔄 Extraction Logs: SMS parsed for transaction data<br>
+            💾 Transaction Logs: Final transactions saved to database
+        </div>
+        
+        <div class="controls">
+            <button onclick="loadLogs()">🔄 Refresh Logs</button>
+            <button onclick="clearAllLogs()">🗑️ Clear All Logs</button>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab(0)">📥 Ingest Logs</button>
+            <button class="tab-button" onclick="switchTab(1)">🔄 Extraction Logs</button>
+            <button class="tab-button" onclick="switchTab(2)">💾 Transaction Logs</button>
+        </div>
+        
+        <div id="ingest-logs" class="log-container active">
+            <div class="empty-message">Loading ingest logs...</div>
+        </div>
+        
+        <div id="extraction-logs" class="log-container">
+            <div class="empty-message">Loading extraction logs...</div>
+        </div>
+        
+        <div id="transaction-logs" class="log-container">
+            <div class="empty-message">Loading transaction logs...</div>
+        </div>
+    </div>
+    
+    <script>
+        async function loadLogs() {
+            try {
+                // Load ingest logs
+                const ingestResponse = await fetch('/smart_budget/backend/logs/sms-ingest.txt');
+                const ingestText = ingestResponse.ok ? await ingestResponse.text() : 'No ingest logs found';
+                displayLogs('ingest', ingestText);
+                
+                // Load extraction logs
+                const extractionResponse = await fetch('/smart_budget/backend/logs/sms-extraction.txt');
+                const extractionText = extractionResponse.ok ? await extractionResponse.text() : 'No extraction logs found';
+                displayLogs('extraction', extractionText);
+                
+                // Load transaction logs
+                const transactionResponse = await fetch('/smart_budget/backend/logs/sms-transactions.txt');
+                const transactionText = transactionResponse.ok ? await transactionResponse.text() : 'No transaction logs found';
+                displayLogs('transaction', transactionText);
+            } catch (error) {
+                console.error('Error loading logs:', error);
+            }
+        }
+        
+        function displayLogs(type, content) {
+            const containerId = type === 'ingest' ? 'ingest-logs' : 
+                               type === 'extraction' ? 'extraction-logs' : 'transaction-logs';
+            const container = document.getElementById(containerId);
+            
+            if (!content || content.trim() === 'No' + (type === 'ingest' ? ' ingest' : type === 'extraction' ? ' extraction' : ' transaction') + ' logs found') {
+                container.innerHTML = '<div class="empty-message">No logs yet. Send SMS or test the webhook to generate logs.</div>';
+                return;
+            }
+            
+            const entries = content.trim().split('---\n').filter(e => e.trim());
+            container.innerHTML = '';
+            
+            entries.forEach(entry => {
+                if (entry.trim()) {
+                    const div = document.createElement('div');
+                    div.className = 'log-entry ' + type;
+                    div.textContent = entry.trim();
+                    container.appendChild(div);
+                }
+            });
+        }
+        
+        function switchTab(index) {
+            // Hide all tabs
+            document.querySelectorAll('.log-container').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+            
+            // Show selected tab
+            const tabIds = ['ingest-logs', 'extraction-logs', 'transaction-logs'];
+            document.getElementById(tabIds[index]).classList.add('active');
+            document.querySelectorAll('.tab-button')[index].classList.add('active');
+        }
+        
+        async function clearAllLogs() {
+            if (!confirm('Are you sure you want to clear all logs? This cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                // Clear by fetching a clear endpoint (or just reload)
+                await fetch('/smart_budget/backend/logs/clear.php', { method: 'POST' });
+                alert('Logs cleared!');
+                loadLogs();
+            } catch (error) {
+                console.error('Error clearing logs:', error);
+            }
+        }
+        
+        // Load logs on page load
+        window.addEventListener('load', loadLogs);
+        
+        // Auto-refresh every 5 seconds
+        setInterval(loadLogs, 5000);
+    </script>
+</body>
+</html>
