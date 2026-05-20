@@ -66,9 +66,9 @@ $spent_row = $spent_result->fetch_assoc();
 $calculated_total_spent = floatval($spent_row['calculated_spent']);
 $stmt->close();
 
-// RECALCULATE total_saved from actual savings_goals for the selected month/year
-$stmt = $conn->prepare("SELECT COALESCE(SUM(current_amount), 0) as calculated_saved FROM savings_goals WHERE user_id = ? AND month = ? AND year = ?");
-$stmt->bind_param("iii", $user_id, $month, $year);
+// RECALCULATE total_saved from actual savings goals (single source of truth — goals are long-term)
+$stmt = $conn->prepare("SELECT COALESCE(SUM(current_amount), 0) as calculated_saved FROM savings_goals WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
 $stmt->execute();
 $saved_result = $stmt->get_result();
 $saved_row = $saved_result->fetch_assoc();

@@ -264,7 +264,7 @@ export default function Dashboard() {
   const totalSpent  = Number(budget?.total_spent)    || 0;
   const totalBudget = Number(budget?.monthly_budget) || 0;
   const totalSaved  = Number(budget?.total_saved)    || 0;
-  const remaining   = Math.max(0, totalBudget - totalSpent - totalSaved);
+  const remaining   = totalBudget - totalSpent - totalSaved;
 
   const handleAddSavings = async e => {
     e.preventDefault();
@@ -341,7 +341,7 @@ export default function Dashboard() {
             label: totalSaved>0?'Across all goals':'No savings yet' }}
           icon={PiggyBank} accent="#10B981" isLoading={loading} />
         <KPICard title="Remaining"
-          amount={loading ? '' : `M${fmt(remaining)}`}
+          amount={loading ? '' : remaining < 0 ? `-M${fmt(Math.abs(remaining))}` : `M${fmt(remaining)}`}
           stat={{ type: remaining>0?'positive':'negative',
             label: remaining>0?'Available to spend':'Over budget' }}
           icon={remaining>0?CheckCircle:AlertTriangle}
